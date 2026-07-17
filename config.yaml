@@ -1,0 +1,149 @@
+embedding:
+  model: nomic-ai/nomic-embed-text-v1
+  dim: 768
+  batch_size: 64
+chunking:
+  chunk_size: 512
+  chunk_overlap: 50
+vector_store:
+  path: ./data/lancedb
+  table: knowledge
+connectors:
+  github_files:
+    enabled: true
+    mode: local
+    local_path: C:/Users/I775585/Downloads/learning-automation
+    repo: ${GITHUB_REPO}
+    pat: ${GITHUB_PAT}
+    branch: ''
+    max_api_files: 3000
+    skip_extensions:
+    - .png
+    - .jpg
+    - .jpeg
+    - .gif
+    - .svg
+    - .ico
+    - .pdf
+    - .zip
+    - .jar
+    - .class
+    - .woff
+    - .woff2
+    - .ttf
+    - .eot
+    - .lock
+    - .min.js
+    - .map
+    - .exe
+    - .dll
+    - .so
+    - .bin
+    skip_dirs:
+    - node_modules
+    - .git
+    - dist
+    - build
+    - target
+    - __pycache__
+    - vendor
+    - .idea
+    - .vscode
+    - .gradle
+    - .next
+    - out
+    max_file_size_kb: 500
+    importance_threshold: 25
+  github_commits:
+    enabled: false
+    pat: ${GITHUB_PAT}
+    repo: ${GITHUB_REPO}
+    skip_merge_commits: true
+    skip_authors:
+    - dependabot[bot]
+    - renovate[bot]
+    - github-actions[bot]
+    max_commits: 5000
+  website:
+    enabled: false
+    label: ''
+    start_urls: []
+    sitemap_urls: []
+    same_domain_only: true
+    include_patterns: []
+    exclude_patterns:
+    - /login
+    - /signup
+    - /cart
+    - /privacy
+    - /terms
+    - /cdn-cgi/
+    max_pages: 150
+    max_depth: 2
+    request_timeout_seconds: 15
+    delay_seconds: 0.15
+    min_text_chars: 250
+    max_page_size_kb: 1024
+    respect_robots_txt: true
+    user_agent: KnowledgeHubBot/1.0 (+https://localhost)
+  documents:
+    enabled: false
+    label: documents
+    paths: []
+    recursive: true
+    max_file_size_kb: 10000
+    min_text_chars: 100
+    skip_dirs:
+    - .git
+    - node_modules
+    - __pycache__
+    - .venv
+    - venv
+    - dist
+    - build
+  arxiv:
+    enabled: false
+    label: arxiv-papers
+    ids: []
+    urls: []
+    include_pdf_text: true
+    request_timeout_seconds: 20
+    max_pdf_size_mb: 25
+    min_text_chars: 50
+  youtube:
+    enabled: false
+    label: youtube-transcripts
+    urls: []
+    video_ids: []
+    languages:
+    - en
+    include_timestamps: true
+    request_timeout_seconds: 20
+    min_text_chars: 40
+llm:
+  provider: litellm
+  model: gpt-5.4
+  base_url: http://localhost:6655/litellm
+  max_tokens: 2000
+  temperature: 0.2
+# For Ollama set provider: ollama and base_url like http://localhost:11434/v1
+search:
+  top_k: 10
+  rerank: true
+  rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  rerank_top_k: 20
+sync:
+  enabled: true
+  track_state: ./data/sync_state.json
+hierarchy:
+  enabled: true
+  max_depth: 10
+contextual_rag:
+  enabled: true
+  summary_prompt: 'Summarize this code snippet in one sentence for search indexing:'
+  batch_size: 10
+knowledge_graph:
+  enabled: false
+  model: en_core_web_sm
+  extract_entities: true
+  extract_relations: true
