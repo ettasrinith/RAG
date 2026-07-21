@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from core.config import resolve_data_path
+
 
 @dataclass
 class Entity:
@@ -144,7 +146,7 @@ class EntityExtractor:
 
 class KnowledgeGraphIndex:
     def __init__(self, storage_path: str = "./data/knowledge_graphs"):
-        self.storage_path = Path(storage_path)
+        self.storage_path = resolve_data_path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         self.graphs: dict[str, KnowledgeGraph] = {}
 

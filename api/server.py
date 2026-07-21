@@ -25,8 +25,11 @@ from core.hierarchy import HierarchyIndex
 from connectors.website.crawler import WebsiteCrawlerConnector
 
 config = load_config()
+_store_path = config["vector_store"]["path"]
+if not Path(_store_path).is_absolute():
+    _store_path = str(ROOT / _store_path)
 store = VectorStore(
-    path=config["vector_store"]["path"],
+    path=_store_path,
     table=config["vector_store"]["table"],
     dim=config["embedding"]["dim"],
 )
@@ -60,8 +63,11 @@ _current_index_result = None
 def _recreate_runtime() -> None:
     global config, store, llm, sync_state, _reranker, _kg_index, _reranker_config
     config = load_config()
+    _store_path = config["vector_store"]["path"]
+    if not Path(_store_path).is_absolute():
+        _store_path = str(ROOT / _store_path)
     store = VectorStore(
-        path=config["vector_store"]["path"],
+        path=_store_path,
         table=config["vector_store"]["table"],
         dim=config["embedding"]["dim"],
     )
@@ -200,9 +206,32 @@ class ConfigUpdate(BaseModel):
     documents_min_text_chars: int | None = Field(default=None, ge=0, le=500000)
     arxiv_enabled: bool | None = None
     arxiv_label: str | None = None
+    arxiv_query: str | None = None
     arxiv_ids: list[str] | None = None
     arxiv_urls: list[str] | None = None
+    arxiv_max_results: int | None = Field(default=None, ge=1, le=1000)
     arxiv_include_pdf_text: bool | None = None
+    openalex_enabled: bool | None = None
+    openalex_label: str | None = None
+    openalex_query: str | None = None
+    openalex_ids: list[str] | None = None
+    openalex_api_key: str | None = None
+    openalex_max_results: int | None = Field(default=None, ge=1, le=1000)
+    s2_enabled: bool | None = None
+    s2_label: str | None = None
+    s2_query: str | None = None
+    s2_ids: list[str] | None = None
+    s2_api_key: str | None = None
+    s2_max_results: int | None = Field(default=None, ge=1, le=1000)
+    confluence_enabled: bool | None = None
+    confluence_label: str | None = None
+    confluence_base_url: str | None = None
+    confluence_email: str | None = None
+    confluence_api_token: str | None = None
+    confluence_pat: str | None = None
+    confluence_query: str | None = None
+    confluence_spaces: list[str] | None = None
+    confluence_max_results: int | None = Field(default=None, ge=1, le=1000)
     youtube_enabled: bool | None = None
     youtube_label: str | None = None
     youtube_urls: list[str] | None = None
@@ -225,12 +254,100 @@ class GraphQueryRequest(BaseModel):
     entity: str
 
 
+import html as _html
+import mimetypes
+
 @app.get("/", response_class=HTMLResponse)
 def root():
     index = UI_DIR / "index.html"
     if index.exists():
         return index.read_text(encoding="utf-8")
     return "<h1>Knowledge Hub</h1><p>UI not built yet — POST to /search or /chat.</p>"
+
+
+@app.get("/file", response_class=HTMLResponse)
+def view_file(path: str = ""):
+    """Serve a local file as a styled HTML page for viewing in the browser."""
+    if not path:
+        raise HTTPException(status_code=400, detail="path is required")
+
+    # Resolve relative to the configured local_path
+    local_path = config.get("connectors", {}).get("github_files", {}).get("local_path", "")
+    if not local_path:
+        raise HTTPException(status_code=400, detail="no local path configured")
+
+    from core.config import ROOT as _ROOT
+    base = Path(local_path)
+    if not base.is_absolute():
+        base = _ROOT / local_path
+    base = base.resolve()
+
+    # Prevent path traversal
+    try:
+        target = (base / path).resolve()
+        if not str(target).startswith(str(base)):
+            raise HTTPException(status_code=403, detail="access denied")
+    except (ValueError, OSError):
+        raise HTTPException(status_code=400, detail="invalid path")
+
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="file not found")
+
+    try:
+        content = target.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        try:
+            content = target.read_text(encoding="latin-1")
+        except Exception:
+            raise HTTPException(status_code=400, detail="cannot read file (binary?)")
+    except OSError:
+        raise HTTPException(status_code=500, detail="cannot read file")
+
+    ext = target.suffix.lower()
+    lang_map = {
+        ".py": "python", ".js": "javascript", ".ts": "typescript",
+        ".jsx": "jsx", ".tsx": "tsx", ".html": "html", ".css": "css",
+        ".json": "json", ".yaml": "yaml", ".yml": "yaml", ".md": "markdown",
+        ".sh": "bash", ".bash": "bash", ".sql": "sql", ".go": "go",
+        ".rs": "rust", ".java": "java", ".rb": "ruby", ".c": "c",
+        ".cpp": "cpp", ".h": "c", ".hpp": "cpp", ".xml": "xml",
+        ".toml": "toml", ".ini": "ini", ".cfg": "ini", ".conf": "ini",
+    }
+    lang = lang_map.get(ext, "")
+
+    escaped = _html.escape(content)
+    lines = escaped.split("\n")
+    numbered = "\n".join(
+        f'<span class="ln">{i+1}</span>{line}'
+        for i, line in enumerate(lines)
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{_html.escape(path)}</title>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #0f172a; color: #e2e8f0; }}
+  .bar {{ background: #1e293b; padding: 12px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }}
+  .bar a {{ color: #94a3b8; text-decoration: none; font-size: 14px; }}
+  .bar a:hover {{ color: #e2e8f0; }}
+  .bar .path {{ color: #e2e8f0; font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+  pre {{ padding: 16px 0; overflow-x: auto; font-size: 13px; line-height: 1.7; }}
+  code {{ display: block; }}
+  .ln {{ display: inline-block; width: 4em; text-align: right; padding-right: 1em; color: #475569; user-select: none; }}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <a href="/">&larr; Back</a>
+    <span class="path">{_html.escape(path)}</span>
+  </div>
+  <pre><code>{numbered}</code></pre>
+</body>
+</html>"""
 
 
 @app.get("/health")
@@ -542,6 +659,9 @@ def get_config():
     website = config.get("connectors", {}).get("website", {})
     documents = config.get("connectors", {}).get("documents", {})
     arxiv = config.get("connectors", {}).get("arxiv", {})
+    openalex = config.get("connectors", {}).get("openalex", {})
+    semantic_scholar = config.get("connectors", {}).get("semantic_scholar", {})
+    confluence = config.get("connectors", {}).get("confluence", {})
     youtube = config.get("connectors", {}).get("youtube", {})
     return {
         "repo_path": conn.get("local_path", ""),
@@ -578,9 +698,38 @@ def get_config():
         "arxiv": {
             "enabled": arxiv.get("enabled", False),
             "label": arxiv.get("label", "arxiv-papers"),
+            "query": arxiv.get("query", ""),
             "ids": arxiv.get("ids", []),
             "urls": arxiv.get("urls", []),
+            "max_results": arxiv.get("max_results", 50),
             "include_pdf_text": arxiv.get("include_pdf_text", True),
+        },
+        "openalex": {
+            "enabled": openalex.get("enabled", False),
+            "label": openalex.get("label", "openalex-papers"),
+            "query": openalex.get("query", ""),
+            "ids": openalex.get("ids", []),
+            "api_key": "",
+            "max_results": openalex.get("max_results", 50),
+        },
+        "semantic_scholar": {
+            "enabled": semantic_scholar.get("enabled", False),
+            "label": semantic_scholar.get("label", "semantic-scholar"),
+            "query": semantic_scholar.get("query", ""),
+            "ids": semantic_scholar.get("ids", []),
+            "api_key": "",
+            "max_results": semantic_scholar.get("max_results", 50),
+        },
+        "confluence": {
+            "enabled": confluence.get("enabled", False),
+            "label": confluence.get("label", "confluence"),
+            "base_url": confluence.get("base_url", ""),
+            "email": confluence.get("email", ""),
+            "api_token": "",
+            "pat": "",
+            "query": confluence.get("query", ""),
+            "spaces": confluence.get("spaces", []),
+            "max_results": confluence.get("max_results", 200),
         },
         "youtube": {
             "enabled": youtube.get("enabled", False),
@@ -624,6 +773,9 @@ def update_config(upd: ConfigUpdate, _: None = Depends(_require_auth)):
     website = conn.setdefault("website", {})
     documents = conn.setdefault("documents", {})
     arxiv = conn.setdefault("arxiv", {})
+    openalex = conn.setdefault("openalex", {})
+    semantic_scholar = conn.setdefault("semantic_scholar", {})
+    confluence = conn.setdefault("confluence", {})
     youtube = conn.setdefault("youtube", {})
 
     gh.setdefault("enabled", True)
@@ -631,6 +783,9 @@ def update_config(upd: ConfigUpdate, _: None = Depends(_require_auth)):
     website.setdefault("enabled", False)
     documents.setdefault("enabled", False)
     arxiv.setdefault("enabled", False)
+    openalex.setdefault("enabled", False)
+    semantic_scholar.setdefault("enabled", False)
+    confluence.setdefault("enabled", False)
     youtube.setdefault("enabled", False)
 
     if upd.repo_path is not None:
@@ -699,12 +854,67 @@ def update_config(upd: ConfigUpdate, _: None = Depends(_require_auth)):
         arxiv["enabled"] = False
     if upd.arxiv_label is not None:
         arxiv["label"] = upd.arxiv_label
+    if upd.arxiv_query is not None:
+        arxiv["query"] = upd.arxiv_query
     if upd.arxiv_ids is not None:
         arxiv["ids"] = upd.arxiv_ids
     if upd.arxiv_urls is not None:
         arxiv["urls"] = upd.arxiv_urls
+    if upd.arxiv_max_results is not None:
+        arxiv["max_results"] = upd.arxiv_max_results
     if upd.arxiv_include_pdf_text is not None:
         arxiv["include_pdf_text"] = upd.arxiv_include_pdf_text
+
+    if upd.openalex_enabled is not None:
+        openalex["enabled"] = upd.openalex_enabled
+    elif upd.github_mode is not None and upd.github_mode != "openalex":
+        openalex["enabled"] = False
+    if upd.openalex_label is not None:
+        openalex["label"] = upd.openalex_label
+    if upd.openalex_query is not None:
+        openalex["query"] = upd.openalex_query
+    if upd.openalex_ids is not None:
+        openalex["ids"] = upd.openalex_ids
+    if upd.openalex_api_key is not None and upd.openalex_api_key:
+        openalex["api_key"] = upd.openalex_api_key
+    if upd.openalex_max_results is not None:
+        openalex["max_results"] = upd.openalex_max_results
+
+    if upd.s2_enabled is not None:
+        semantic_scholar["enabled"] = upd.s2_enabled
+    elif upd.github_mode is not None and upd.github_mode != "semantic_scholar":
+        semantic_scholar["enabled"] = False
+    if upd.s2_label is not None:
+        semantic_scholar["label"] = upd.s2_label
+    if upd.s2_query is not None:
+        semantic_scholar["query"] = upd.s2_query
+    if upd.s2_ids is not None:
+        semantic_scholar["ids"] = upd.s2_ids
+    if upd.s2_api_key is not None and upd.s2_api_key:
+        semantic_scholar["api_key"] = upd.s2_api_key
+    if upd.s2_max_results is not None:
+        semantic_scholar["max_results"] = upd.s2_max_results
+
+    if upd.confluence_enabled is not None:
+        confluence["enabled"] = upd.confluence_enabled
+    elif upd.github_mode is not None and upd.github_mode != "confluence":
+        confluence["enabled"] = False
+    if upd.confluence_label is not None:
+        confluence["label"] = upd.confluence_label
+    if upd.confluence_base_url is not None:
+        confluence["base_url"] = upd.confluence_base_url
+    if upd.confluence_email is not None:
+        confluence["email"] = upd.confluence_email
+    if upd.confluence_api_token is not None and upd.confluence_api_token:
+        confluence["api_token"] = upd.confluence_api_token
+    if upd.confluence_pat is not None and upd.confluence_pat:
+        confluence["pat"] = upd.confluence_pat
+    if upd.confluence_query is not None:
+        confluence["query"] = upd.confluence_query
+    if upd.confluence_spaces is not None:
+        confluence["spaces"] = upd.confluence_spaces
+    if upd.confluence_max_results is not None:
+        confluence["max_results"] = upd.confluence_max_results
 
     if upd.youtube_enabled is not None:
         youtube["enabled"] = upd.youtube_enabled

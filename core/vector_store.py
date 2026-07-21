@@ -8,6 +8,8 @@ import lancedb
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from core.config import resolve_data_path
+
 
 _SCHEMA_CACHE: dict[int, pa.Schema] = {}
 
@@ -39,6 +41,7 @@ def _esc(val: str) -> str:
 class VectorStore:
     def __init__(self, path: str = "./data/lancedb", table: str = "knowledge",
                  dim: int = 768):
+        path = resolve_data_path(path)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.db = lancedb.connect(path)
         self.table_name = table
@@ -86,15 +89,21 @@ class VectorStore:
 
     def fts_search(self, query: str, k: int = 10,
                    repo_filter: str | None = None) -> list[dict]:
-        self.ensure_fts()
-        q = self.table.search(query, query_type="fts").limit(k)
-        if repo_filter:
-            q = q.where(f"repo = '{_esc(repo_filter)}'")
-        return q.to_list()
+        try:
+            if self.count() == 0:
+                return []
+            self.ensure_fts()
+            q = self.table.search(query, query_type="fts").limit(k)
+            if repo_filter:
+                q = q.where(f"repo = '{_esc(repo_filter)}'")
+            return q.to_list()
+        except Exception:
+            # FTS index/column issues shouldn't break search; fall back to empty.
+            return []
 
     def list_repos(self) -> list[str]:
         try:
-            tbl = self.table.to_arrow(columns=["repo"])
+            tbl = self.table.to_arrow()
             repo_col = tbl.column("repo").combine_chunks()
             repo_col = pc.drop_null(repo_col)
             return sorted(set(repo_col.to_pylist()))
@@ -103,7 +112,7 @@ class VectorStore:
 
     def list_hierarchy_paths(self, repo: str | None = None) -> list[str]:
         try:
-            tbl = self.table.to_arrow(columns=["hierarchy_path"])
+            tbl = self.table.to_arrow()
             path_col = pc.drop_null(tbl.column("hierarchy_path").combine_chunks())
             paths = sorted(set(path_col.to_pylist()))
             if repo:
@@ -117,7 +126,7 @@ class VectorStore:
 
     def count_by_repo(self) -> dict[str, int]:
         try:
-            tbl = self.table.to_arrow(columns=["repo"])
+            tbl = self.table.to_arrow()
             repos = [r for r in tbl.column("repo").combine_chunks().to_pylist() if r]
             return dict(Counter(repos))
         except Exception:

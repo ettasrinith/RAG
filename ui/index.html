@@ -7,593 +7,219 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">KH</div>
-        <div>
-          <h1>Knowledge Hub</h1>
-          <p>Minimal RAG for code, notes, labs, and projects</p>
-        </div>
+  <div class="app">
+    <nav class="nav">
+      <div class="nav-brand">
+        <div class="nav-logo">KH</div>
+        <span>Knowledge Hub</span>
       </div>
-
-      <nav class="sidebar-nav">
-        <button class="nav-item active" data-page="dashboard">
-          <span class="nav-icon">◻</span>
-          <span>
-            <strong>Dashboard</strong>
-            <small>Overview and ideas</small>
-          </span>
+      <div class="nav-links">
+        <button class="nav-btn active" data-page="index">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Index
         </button>
-        <button class="nav-item" data-page="search">
-          <span class="nav-icon">⌕</span>
-          <span>
-            <strong>Search</strong>
-            <small>Hybrid retrieval</small>
-          </span>
+        <button class="nav-btn" data-page="search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Search
         </button>
-        <button class="nav-item" data-page="chat">
-          <span class="nav-icon">✦</span>
-          <span>
-            <strong>Chat</strong>
-            <small>Grounded Q&amp;A</small>
-          </span>
+        <button class="nav-btn" data-page="chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Chat
         </button>
-        <button class="nav-item" data-page="index">
-          <span class="nav-icon">⟳</span>
-          <span>
-            <strong>Index</strong>
-            <small>GitHub token or local folder</small>
-          </span>
-        </button>
-        <button class="nav-item" data-page="settings">
-          <span class="nav-icon">⚙</span>
-          <span>
-            <strong>Settings</strong>
-            <small>Models and retrieval</small>
-          </span>
-        </button>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="status-inline" id="sidebarStatus">
-          <span class="status-dot idle"></span>
-          <span>Idle</span>
-        </div>
-        <p>CSS file: <code>ui/styles.css</code></p>
       </div>
-    </aside>
+      <div class="nav-status" id="navStatus">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </nav>
 
-    <main class="main">
-      <header class="topbar">
-        <div class="topbar-left">
-          <button class="menu-button" id="menuButton">☰</button>
-          <div>
-            <div class="eyebrow">Student-friendly RAG workspace</div>
-            <h2 id="pageTitle">Dashboard</h2>
-            <p id="pageSubtitle">A cleaner workspace for indexing GitHub repositories, local folders, and academic material.</p>
-          </div>
-        </div>
-        <div class="topbar-right">
-          <div class="pill" id="topbarStatus">Idle</div>
-          <div class="pill muted" id="clockPill">--:--:--</div>
-        </div>
-      </header>
+    <main class="content">
 
-      <section class="page active" id="page-dashboard">
-        <div class="hero-card card">
-          <div class="hero-copy">
-            <span class="section-kicker">Focused use case</span>
-            <h3>Build this as a student knowledge assistant, not a company dashboard.</h3>
-            <p>
-              Index your class notes, coding project folders, GitHub repositories, labs, documentation, and revision material.
-              Then search and chat over all of it with grounded answers and citations.
-            </p>
-            <div class="button-row">
-              <button class="btn btn-primary" onclick="navigate('index')">Start indexing</button>
-              <button class="btn" onclick="navigate('search')">Try search</button>
-              <button class="btn" onclick="navigate('chat')">Open chat</button>
+      <!-- INDEX PAGE -->
+      <section class="page active" id="page-index">
+        <div class="page-header">
+          <h1>Add content</h1>
+          <p>Pick a source, configure it, and index it into your knowledge base.</p>
+        </div>
+
+        <div class="source-tabs">
+          <button class="source-tab active" data-source="local">Folder</button>
+          <button class="source-tab" data-source="github">GitHub</button>
+          <button class="source-tab" data-source="website">Website</button>
+          <button class="source-tab" data-source="arxiv">arXiv</button>
+          <button class="source-tab" data-source="youtube">YouTube</button>
+          <button class="source-tab" data-source="zip">ZIP</button>
+        </div>
+
+        <!-- Local -->
+        <div class="source-panel active" id="panel-local">
+          <div class="field">
+            <label>Project or notes folder</label>
+            <div class="input-row">
+              <input type="text" id="repoPath" placeholder="C:/Users/you/Documents/my-project">
+              <button class="btn" onclick="browseFolders()">Browse</button>
             </div>
-          </div>
-          <div class="hero-side">
-            <div class="mini-info">
-              <span class="mini-label">Current source</span>
-              <strong id="heroSourceTitle">Loading...</strong>
-              <p id="heroSourceMeta">Checking your configured indexing source.</p>
-            </div>
-            <div class="mini-info">
-              <span class="mini-label">Best project idea</span>
-              <strong>Student Knowledge Assistant</strong>
-              <p>Use RAG for semester notes, coding labs, project docs, viva prep, and exam revision.</p>
-            </div>
+            <div class="folder-list" id="folderList"></div>
           </div>
         </div>
 
-        <div class="stats-grid">
-          <div class="stat-card card">
-            <span class="stat-label">Documents</span>
-            <strong class="stat-value" id="statDocs">0</strong>
-            <p>Indexed documents and materials</p>
+        <!-- GitHub -->
+        <div class="source-panel" id="panel-github">
+          <div class="field-row">
+            <div class="field">
+              <label>Repository</label>
+              <input type="text" id="githubRepo" placeholder="owner/repo">
+            </div>
+            <div class="field">
+              <label>Branch (optional)</label>
+              <input type="text" id="githubBranch" placeholder="main">
+            </div>
           </div>
-          <div class="stat-card card">
-            <span class="stat-label">Chunks</span>
-            <strong class="stat-value" id="statChunks">0</strong>
-            <p>Retrieval-ready chunks stored</p>
-          </div>
-          <div class="stat-card card">
-            <span class="stat-label">Repositories</span>
-            <strong class="stat-value" id="statRepos">0</strong>
-            <p>Indexed repos or folders</p>
-          </div>
-          <div class="stat-card card">
-            <span class="stat-label">Rows</span>
-            <strong class="stat-value" id="statRows">0</strong>
-            <p>Total rows in vector store</p>
+          <div class="field">
+            <label>Personal access token</label>
+            <input type="password" id="githubPat" placeholder="ghp_...">
           </div>
         </div>
 
-        <div class="grid-two">
-          <section class="card section-card">
-            <div class="section-head">
-              <div>
-                <h3>Indexed repositories</h3>
-                <p>See current coverage across your indexed data sources.</p>
-              </div>
-              <button class="btn btn-small" onclick="refreshDashboard()">Refresh</button>
+        <!-- Website -->
+        <div class="source-panel" id="panel-website">
+          <div class="field">
+            <label>Start URLs (one per line)</label>
+            <textarea id="websiteStartUrls" rows="3" placeholder="https://docs.example.com&#10;https://blog.example.com"></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Max pages</label>
+              <input type="number" id="websiteMaxPages" value="150" min="1" max="5000">
             </div>
-            <div id="repoList"></div>
-          </section>
+            <div class="field">
+              <label>Max depth</label>
+              <input type="number" id="websiteMaxDepth" value="2" min="0" max="10">
+            </div>
+            <label class="checkbox">
+              <input type="checkbox" id="websiteSameDomainOnly" checked>
+              Same domain only
+            </label>
+          </div>
+        </div>
 
-          <section class="card section-card">
-            <div class="section-head">
-              <div>
-                <h3>Academic RAG ideas</h3>
-                <p>Better directions for a school or college project.</p>
-              </div>
+        <!-- arXiv -->
+        <div class="source-panel" id="panel-arxiv">
+          <div class="field">
+            <label>Topic search (query all fields)</label>
+            <input type="text" id="arxivQuery" placeholder="e.g. transformer attention mechanism">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Max results</label>
+              <input type="number" id="arxivMaxResults" value="50" min="1" max="1000">
             </div>
-            <div class="idea-list">
-              <div class="idea-item">
-                <strong>Study Material RAG</strong>
-                <p>Lecture notes, markdown summaries, assignment notes, and revision material.</p>
-              </div>
-              <div class="idea-item">
-                <strong>Programming Course Assistant</strong>
-                <p>Index DSA labs, Java/Python folders, code snippets, and class examples.</p>
-              </div>
-              <div class="idea-item">
-                <strong>Final Year Project Memory</strong>
-                <p>Keep reports, diagrams, commits, docs, and source code searchable in one place.</p>
-              </div>
-            </div>
-          </section>
+          </div>
+          <div class="field">
+            <label>Or specific arXiv IDs/URLs (one per line)</label>
+            <textarea id="arxivIds" rows="3" placeholder="1706.03762&#10;https://arxiv.org/abs/2401.00001"></textarea>
+          </div>
+        </div>
+
+        <!-- YouTube -->
+        <div class="source-panel" id="panel-youtube">
+          <div class="field">
+            <label>Video URLs or IDs (one per line)</label>
+            <textarea id="youtubeUrls" rows="4" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+          </div>
+        </div>
+
+        <!-- ZIP -->
+        <div class="source-panel" id="panel-zip">
+          <div class="field">
+            <label>Upload a ZIP of notes, docs, or project files</label>
+            <input type="file" id="zipFile" accept=".zip">
+          </div>
+          <div id="zipSummary" class="hidden"></div>
+        </div>
+
+        <div class="index-actions">
+          <label class="checkbox">
+            <input type="checkbox" id="forceFull">
+            Force full re-index
+          </label>
+          <div class="btn-group">
+            <button class="btn" onclick="saveSourceConfig()">Save</button>
+            <button class="btn primary" id="startBtn" onclick="startIndexing()">Start indexing</button>
+            <button class="btn danger" id="stopBtn" onclick="stopIndexing()" disabled>Stop</button>
+          </div>
+        </div>
+
+        <div class="card hidden" id="progressCard">
+          <div class="card-header">
+            <h3>Progress</h3>
+            <span class="badge" id="progressBadge">Idle</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-info">
+            <span id="progressLabel">Waiting...</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="log" id="progressLog"></div>
         </div>
       </section>
 
+      <!-- SEARCH PAGE -->
       <section class="page" id="page-search">
-        <div class="card section-card">
-          <div class="section-head">
-            <div>
-              <h3>Search your knowledge base</h3>
-              <p>Search code, notes, docs, crawled websites, and GitHub commits with hybrid retrieval.</p>
+        <div class="page-header">
+          <h1>Search</h1>
+          <p>Find anything across your indexed content.</p>
+        </div>
+
+        <form id="searchForm" onsubmit="return doSearch(event)">
+          <div class="search-bar">
+            <input type="text" id="searchQuery" placeholder="Search your knowledge base..." required autofocus>
+            <button type="submit" class="btn primary" id="searchBtn">Search</button>
+          </div>
+          <div class="search-filters">
+            <select id="searchRepo">
+              <option value="">All sources</option>
+            </select>
+            <select id="searchSource">
+              <option value="">All types</option>
+              <option value="github_files">Files</option>
+              <option value="github_commits">Commits</option>
+              <option value="website">Website</option>
+              <option value="documents">Documents</option>
+              <option value="arxiv">arXiv</option>
+              <option value="youtube">YouTube</option>
+            </select>
+            <label class="checkbox">
+              <input type="checkbox" id="searchHybrid" checked>
+              Hybrid
+            </label>
+          </div>
+        </form>
+
+        <div id="searchResults"></div>
+      </section>
+
+      <!-- CHAT PAGE -->
+      <section class="page" id="page-chat">
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div class="msg assistant">
+              <div class="bubble">Ask me anything about your indexed content. I'll answer with sources.</div>
             </div>
           </div>
-          <form id="searchForm" class="stack-form" onsubmit="return doSearch(event)">
-            <div class="field">
-              <label>Query</label>
-              <input id="searchQuery" name="q" type="text" placeholder="Ask about a function, topic, chapter, file, concept, or implementation..." required>
-            </div>
-            <div class="field-grid two">
-              <div class="field">
-                <label>Repository</label>
-                <select name="repo" id="searchRepoSelect">
-                  <option value="">All repositories</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Source</label>
-                <select name="source">
-                  <option value="">All sources</option>
-                  <option value="github_files">GitHub files</option>
-                  <option value="github_commits">GitHub commits</option>
-                  <option value="website">Website crawler</option>
-                  <option value="documents">Documents</option>
-                  <option value="arxiv">arXiv papers</option>
-                  <option value="youtube">YouTube transcripts</option>
-                </select>
-              </div>
-            </div>
-            <div class="field-grid three align-end">
-              <div class="field">
-                <label>Top K</label>
-                <input name="k" type="number" min="1" max="100" value="10">
-              </div>
-              <label class="check-card">
-                <input type="checkbox" name="hybrid" checked>
-                <span>Use hybrid search</span>
-              </label>
-              <label class="check-card">
-                <input type="checkbox" name="rerank">
-                <span>Use reranking</span>
-              </label>
-            </div>
-            <div class="button-row">
-              <button type="submit" class="btn btn-primary" id="searchButton">Search</button>
-              <button type="button" class="btn" onclick="useSampleQuery()">Use sample query</button>
-            </div>
+          <form class="chat-bar" onsubmit="return sendChat(event)">
+            <input type="text" id="chatInput" placeholder="Ask a question...">
+            <button type="submit" class="btn primary" id="chatBtn">Send</button>
           </form>
         </div>
-        <div id="searchResults" class="results-wrap"></div>
       </section>
 
-      <section class="page" id="page-chat">
-        <div class="card web-source-card">
-          <label class="check-card">
-            <input type="checkbox" id="webMode">
-            <span>Ask the live web (pull only — nothing is stored)</span>
-          </label>
-          <textarea id="webUrls" style="width:100%;min-height:68px;margin-top:8px" placeholder="Optional: paste website URL(s), one per line. Leave empty to use the configured start URLs."></textarea>
-          <p class="web-hint">When enabled, your question is answered from the fetched page(s) on the fly. The website content is never written to the index.</p>
-        </div>
-        <div class="card chat-card">
-          <div class="section-head border-bottom">
-            <div>
-              <h3>Grounded chat</h3>
-              <p>Ask questions over your indexed repos, notes, and project material.</p>
-            </div>
-            <div class="pill muted" id="chatStatus">Ready</div>
-          </div>
-          <div class="chat-messages" id="chatMessages">
-            <div class="message assistant">
-              <div class="bubble">
-                Hi — ask me about your repo, notes, assignments, labs, or project documentation. I will answer using indexed context and sources.
-              </div>
-              <span class="message-meta">Assistant</span>
-            </div>
-          </div>
-          <div class="chat-input-bar">
-            <input id="chatInput" type="text" placeholder="Ask a question about your indexed material..." onkeydown="handleChatKey(event)">
-            <button class="btn btn-primary" id="chatSendButton" onclick="sendChat()">Send</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="page" id="page-index">
-        <div class="grid-two index-grid">
-          <section class="card section-card">
-            <div class="section-head">
-              <div>
-                <h3>Index source</h3>
-                <p>Choose between a local folder or a GitHub repository using a token.</p>
-              </div>
-            </div>
-
-            <div class="field">
-              <label>Indexing mode</label>
-              <div class="segmented" id="sourceModeButtons">
-                <button type="button" class="segment active" data-mode="local">Local folder</button>
-                <button type="button" class="segment" data-mode="github">GitHub token</button>
-                <button type="button" class="segment" data-mode="website">Website crawler</button>
-                <button type="button" class="segment" data-mode="arxiv">arXiv papers</button>
-                <button type="button" class="segment" data-mode="youtube">YouTube</button>
-                <button type="button" class="segment" data-mode="zip">ZIP upload</button>
-              </div>
-            </div>
-
-            <div id="localModeFields">
-              <div class="field">
-                <label>Repository / folder path</label>
-                <div class="inline-input">
-                  <input type="text" id="repoPath" placeholder="C:/path/to/project-or-notes-folder">
-                  <button type="button" class="btn" onclick="browseFolders()">Browse</button>
-                </div>
-                <div class="folder-list" id="folderList"></div>
-              </div>
-            </div>
-
-            <div id="githubModeFields" class="hidden-block">
-              <div class="field-grid two">
-                <div class="field">
-                  <label>GitHub repository</label>
-                  <input type="text" id="githubRepo" placeholder="owner/repo">
-                </div>
-                <div class="field">
-                  <label>Branch (optional)</label>
-                  <input type="text" id="githubBranch" placeholder="main">
-                </div>
-              </div>
-              <div class="field">
-                <label>GitHub personal access token</label>
-                <input type="password" id="githubPat" placeholder="Paste your GitHub token">
-              </div>
-              <label class="check-card full-width">
-                <input type="checkbox" id="githubCommitsEnabled">
-                <span>Also index GitHub commits</span>
-              </label>
-            </div>
-
-            <div id="websiteModeFields" class="hidden-block">
-              <div class="field-grid two">
-                <div class="field">
-                  <label>Website label</label>
-                  <input type="text" id="websiteLabel" placeholder="College docs / Course site / Knowledge portal">
-                </div>
-                <label class="check-card full-width">
-                  <input type="checkbox" id="websiteEnabled">
-                  <span>Enable website crawler</span>
-                </label>
-              </div>
-              <div class="field">
-                <label>Start URLs</label>
-                <textarea id="websiteStartUrls" placeholder="https://example.com&#10;https://example.com/docs"></textarea>
-              </div>
-              <div class="field">
-                <label>Sitemap URLs (optional)</label>
-                <textarea id="websiteSitemapUrls" placeholder="https://example.com/sitemap.xml"></textarea>
-              </div>
-              <div class="field-grid two">
-                <div class="field">
-                  <label>Include patterns (optional)</label>
-                  <textarea id="websiteIncludePatterns" placeholder="/docs&#10;/blog&#10;/notices"></textarea>
-                </div>
-                <div class="field">
-                  <label>Exclude patterns</label>
-                  <textarea id="websiteExcludePatterns" placeholder="/login&#10;/privacy&#10;/terms"></textarea>
-                </div>
-              </div>
-              <div class="field-grid three align-end">
-                <div class="field">
-                  <label>Max pages</label>
-                  <input type="number" id="websiteMaxPages" min="1" max="5000" value="150">
-                </div>
-                <div class="field">
-                  <label>Max depth</label>
-                  <input type="number" id="websiteMaxDepth" min="0" max="10" value="2">
-                </div>
-                <div class="field">
-                  <label>Min text chars</label>
-                  <input type="number" id="websiteMinTextChars" min="0" max="5000" value="250">
-                </div>
-              </div>
-              <div class="field-grid two">
-                <div class="field">
-                  <label>Delay between requests (seconds)</label>
-                  <input type="number" id="websiteDelaySeconds" min="0" max="10" step="0.05" value="0.15">
-                </div>
-                <div class="field stack-form">
-                  <label class="check-card full-width">
-                    <input type="checkbox" id="websiteSameDomainOnly" checked>
-                    <span>Stay on same domain only</span>
-                  </label>
-                  <label class="check-card full-width">
-                    <input type="checkbox" id="websiteRespectRobots" checked>
-                    <span>Respect robots.txt</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div id="arxivModeFields" class="hidden-block">
-              <div class="field-grid two">
-                <label class="check-card full-width">
-                  <input type="checkbox" id="arxivEnabled">
-                  <span>Enable arXiv indexing</span>
-                </label>
-                <div class="field">
-                  <label>Collection label</label>
-                  <input type="text" id="arxivLabel" placeholder="Research papers / ML papers / NLP reading list">
-                </div>
-              </div>
-              <div class="field-grid two">
-                <div class="field">
-                  <label>arXiv IDs</label>
-                  <textarea id="arxivIds" placeholder="1706.03762&#10;2401.00001"></textarea>
-                </div>
-                <div class="field">
-                  <label>arXiv URLs</label>
-                  <textarea id="arxivUrls" placeholder="https://arxiv.org/abs/1706.03762"></textarea>
-                </div>
-              </div>
-              <label class="check-card full-width">
-                <input type="checkbox" id="arxivIncludePdfText" checked>
-                <span>Also extract full PDF text when available</span>
-              </label>
-            </div>
-
-            <div id="youtubeModeFields" class="hidden-block">
-              <div class="field-grid two">
-                <label class="check-card full-width">
-                  <input type="checkbox" id="youtubeEnabled">
-                  <span>Enable YouTube transcript indexing</span>
-                </label>
-                <div class="field">
-                  <label>Collection label</label>
-                  <input type="text" id="youtubeLabel" placeholder="Lecture videos / tutorials / viva prep">
-                </div>
-              </div>
-              <div class="field-grid two">
-                <div class="field">
-                  <label>YouTube URLs</label>
-                  <textarea id="youtubeUrls" placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"></textarea>
-                </div>
-                <div class="field">
-                  <label>Video IDs (optional)</label>
-                  <textarea id="youtubeVideoIds" placeholder="dQw4w9WgXcQ"></textarea>
-                </div>
-              </div>
-              <div class="field-grid two">
-                <div class="field">
-                  <label>Languages</label>
-                  <input type="text" id="youtubeLanguages" placeholder="en, hi, en-US">
-                </div>
-                <label class="check-card full-width">
-                  <input type="checkbox" id="youtubeIncludeTimestamps" checked>
-                  <span>Include timestamps in transcript text</span>
-                </label>
-              </div>
-            </div>
-
-            <div id="zipModeFields" class="hidden-block">
-              <div class="field-grid two">
-                <div class="field">
-                  <label>ZIP label</label>
-                  <input type="text" id="zipLabel" placeholder="Semester notes / project bundle / assignment pack">
-                </div>
-                <div class="field">
-                  <label>ZIP file</label>
-                  <input type="file" id="zipFile" accept=".zip">
-                </div>
-              </div>
-              <p class="hint">Upload a ZIP of notes, docs, markdown, or project files. It will be safely extracted and indexed like a local document collection.</p>
-              <div class="summary-item hidden-block" id="zipUploadSummary"></div>
-            </div>
-
-            <div class="field-grid two margin-top-lg">
-              <label class="check-card full-width">
-                <input type="checkbox" id="forceFull">
-                <span>Force full re-index</span>
-              </label>
-              <div class="button-row align-right">
-                <button class="btn" type="button" onclick="saveSourceConfig()">Save source</button>
-                <button class="btn btn-primary" type="button" id="startIndexButton" onclick="startIndexing()">Start indexing</button>
-                <button class="btn btn-danger" type="button" id="stopIndexButton" onclick="stopIndexing()" disabled>Stop</button>
-                <button class="btn" type="button" onclick="clearIndex()">Clear index</button>
-              </div>
-            </div>
-          </section>
-
-          <section class="card section-card">
-            <div class="section-head">
-              <div>
-                <h3>Current source summary</h3>
-                <p>Useful when you switch between folders, GitHub repos, and reusable website crawls.</p>
-              </div>
-            </div>
-            <div id="sourceSummary"></div>
-            <div class="info-note">
-              Best use: crawl course sites, notice pages, docs portals, blogs, research pages, help centers, and any website you want to pull information from.
-            </div>
-          </section>
-        </div>
-
-        <section class="card section-card margin-top-lg hidden-block" id="progressCard">
-          <div class="section-head">
-            <div>
-              <h3>Indexing progress</h3>
-              <p>Live status from the indexing pipeline.</p>
-            </div>
-            <div class="status-inline" id="indexStatusBadge">
-              <span class="status-dot idle"></span>
-              <span>Idle</span>
-            </div>
-          </div>
-          <div class="progress-wrap">
-            <div class="progress-top">
-              <span id="progressLabel">Waiting...</span>
-              <span id="progressPercent">0%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <p class="progress-meta" id="progressText">0 documents, 0 chunks</p>
-          </div>
-          <div class="log-list" id="progressLog"></div>
-        </section>
-      </section>
-
-      <section class="page" id="page-settings">
-        <div class="grid-two settings-grid">
-          <section class="card section-card">
-            <div class="section-head">
-              <div>
-                <h3>LLM settings</h3>
-                <p>Configure the answer model used for responses.</p>
-              </div>
-            </div>
-            <div class="field-grid two">
-              <div class="field">
-                <label>Provider</label>
-                <select id="setLLMProvider">
-                  <option value="anthropic">Anthropic</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="litellm">LiteLLM</option>
-                  <option value="ollama">Ollama</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Model</label>
-                <input type="text" id="setLLMModel" placeholder="gpt-4.1 / claude / etc.">
-              </div>
-            </div>
-            <div class="field-grid two">
-              <div class="field">
-                <label>Temperature</label>
-                <input type="number" id="setLLMTemp" step="0.1" min="0" max="2">
-              </div>
-              <div class="field">
-                <label>Max tokens</label>
-                <input type="number" id="setLLMMaxTokens" min="100" max="16384">
-              </div>
-            </div>
-          </section>
-
-          <section class="card section-card">
-            <div class="section-head">
-              <div>
-                <h3>Retrieval settings</h3>
-                <p>Control embeddings, chunking, and search defaults.</p>
-              </div>
-            </div>
-            <div class="field-grid two">
-              <div class="field">
-                <label>Embedding model</label>
-                <input type="text" id="setEmbModel">
-              </div>
-              <div class="field">
-                <label>Search top K</label>
-                <input type="number" id="setTopK" min="1" max="100">
-              </div>
-            </div>
-            <div class="field-grid two">
-              <div class="field">
-                <label>Chunk size</label>
-                <input type="number" id="setChunkSize" min="64" max="8192">
-              </div>
-              <div class="field">
-                <label>Chunk overlap</label>
-                <input type="number" id="setChunkOverlap" min="0" max="1024">
-              </div>
-            </div>
-            <label class="check-card full-width">
-              <input type="checkbox" id="setRerank">
-              <span>Enable reranking by default</span>
-            </label>
-            <div class="button-row margin-top-lg">
-              <button class="btn btn-primary" onclick="saveSettings()">Save settings</button>
-              <span class="save-status" id="settingsStatus"></span>
-            </div>
-          </section>
-
-          <section class="card section-card">
-            <div class="section-head">
-              <div>
-                <h3>API access</h3>
-                <p>Optional. Set <code>KH_API_KEY</code> on the server to require this key on write endpoints.</p>
-              </div>
-            </div>
-            <div class="field">
-              <label>API key</label>
-              <input type="password" id="setApiToken" placeholder="only needed if the server enforces KH_API_KEY" autocomplete="off">
-              <p class="hint">Stored in your browser only. Sent as the <code>X-API-Key</code> header.</p>
-            </div>
-          </section>
-        </div>
-      </section>
     </main>
   </div>
 
-  <div class="toast-region" id="toastRegion"></div>
+  <div class="toasts" id="toasts"></div>
   <script src="/static/app.js" defer></script>
 </body>
 </html>

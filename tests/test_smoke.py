@@ -14,8 +14,8 @@ from core.config import _resolve_env
 
 def test_hybrid_merges_and_ranks():
     vector = [
-        {"id": "a::chunk0", "doc_id": "a", "_distance": 0.1},
-        {"id": "b::chunk0", "doc_id": "b", "_distance": 0.5},
+        {"id": "a::chunk0", "doc_id": "a", "_distance": 0.3},
+        {"id": "b::chunk0", "doc_id": "b", "_distance": 0.1},
     ]
     fts = [
         {"id": "b::chunk0", "doc_id": "b", "_score": 2.0},

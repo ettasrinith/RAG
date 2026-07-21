@@ -31,6 +31,11 @@ def _resolve_env(value, path=()):
     if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
         var = value[2:-1]
         val = os.environ.get(var, "")
+        if not val:
+            # Unset env var -> treat as empty so connectors can fall back to a
+            # ROOT-relative default instead of keeping the literal "${VAR}".
+            _ENV_REFS[path] = (var, "")
+            return ""
         _ENV_REFS[path] = (var, val)
         return val
     return value
@@ -41,6 +46,18 @@ def load_config(path: str | Path | None = None) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
     return _resolve_env(raw)
+
+
+def resolve_data_path(p: str | Path) -> Path:
+    """Resolve a data path relative to the project ROOT so the app behaves the
+    same regardless of the current working directory it is launched from.
+
+    Absolute paths and existing paths are returned unchanged.
+    """
+    p = Path(p)
+    if p.is_absolute():
+        return p
+    return (ROOT / p).resolve()
 
 
 def save_config(config: dict, path: str | Path | None = None) -> None:

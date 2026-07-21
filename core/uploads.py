@@ -6,7 +6,9 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-ZIP_ROOT = Path("./data/uploads")
+from core.config import resolve_data_path
+
+ZIP_ROOT = resolve_data_path("./data/uploads")
 ZIP_ROOT.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {

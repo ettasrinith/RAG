@@ -14,7 +14,12 @@ from connectors.github.importance import (
     git_change_counts,
     importance_score,
 )
+from core.config import ROOT
 from core.sync_state import SyncState
+
+# Default folder to index when no local_path is configured. Resolved relative to
+# the project root so the app works from any current working directory.
+DEFAULT_LOCAL_DIR = "data/local_repo"
 
 
 TEXT_EXTENSIONS = {
@@ -35,7 +40,7 @@ class GitHubFilesConnector(BaseConnector):
     def __init__(self, config: dict):
         super().__init__(config)
         self.mode = (config.get("mode") or "").strip().lower()
-        self.local_path = Path(config.get("local_path") or "")
+        self.local_path = self._resolve_local_path(config.get("local_path") or "")
         self.repo = (config.get("repo") or "").strip()
         self.pat = (config.get("pat") or "").strip()
         self.branch = (config.get("branch") or "").strip()
@@ -44,6 +49,23 @@ class GitHubFilesConnector(BaseConnector):
         self.max_size_bytes = int(config.get("max_file_size_kb", 500)) * 1024
         self.threshold = float(config.get("importance_threshold", 25))
         self.max_api_files = int(config.get("max_api_files", 3000))
+
+    def _resolve_local_path(self, raw: str) -> Path:
+        """Resolve a configured local_path to an absolute Path that works from
+        any current working directory.
+
+        - empty string -> default ROOT-relative folder (created on demand)
+        - '~/...'       -> expanded user home
+        - relative path -> resolved against the project ROOT
+        - absolute path -> used as-is
+        """
+        raw = (raw or "").strip()
+        if not raw:
+            return (ROOT / DEFAULT_LOCAL_DIR).resolve()
+        p = Path(os.path.expanduser(raw))
+        if not p.is_absolute():
+            p = (ROOT / p).resolve()
+        return p
 
     def _repo_label(self) -> str:
         if self.repo:

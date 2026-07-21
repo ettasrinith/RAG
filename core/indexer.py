@@ -33,6 +33,9 @@ CONNECTOR_REGISTRY: dict[str, str] = {
     "documents": "connectors.documents.reader:DocumentsConnector",
     "arxiv": "connectors.arxiv.reader:ArxivConnector",
     "youtube": "connectors.youtube.reader:YouTubeTranscriptConnector",
+    "openalex": "connectors.openalex.reader:OpenAlexConnector",
+    "semantic_scholar": "connectors.semantic_scholar.reader:SemanticScholarConnector",
+    "confluence": "connectors.confluence.reader:ConfluenceConnector",
 }
 
 
@@ -130,6 +133,18 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
         arxiv_cfg = config.get("connectors", {}).get("arxiv", {})
         repo_name = (arxiv_cfg.get("label") or "arxiv-papers").strip() or "arxiv-papers"
         config["connectors"]["arxiv"]["enabled"] = True
+    elif github_mode == "openalex":
+        oa_cfg = config.get("connectors", {}).get("openalex", {})
+        repo_name = (oa_cfg.get("label") or "openalex-papers").strip() or "openalex-papers"
+        config["connectors"]["openalex"]["enabled"] = True
+    elif github_mode == "semantic_scholar":
+        s2_cfg = config.get("connectors", {}).get("semantic_scholar", {})
+        repo_name = (s2_cfg.get("label") or "semantic-scholar").strip() or "semantic-scholar"
+        config["connectors"]["semantic_scholar"]["enabled"] = True
+    elif github_mode == "confluence":
+        cf_cfg = config.get("connectors", {}).get("confluence", {})
+        repo_name = (cf_cfg.get("label") or "confluence").strip() or "confluence"
+        config["connectors"]["confluence"]["enabled"] = True
     elif github_mode == "youtube":
         yt_cfg = config.get("connectors", {}).get("youtube", {})
         repo_name = (yt_cfg.get("label") or "youtube-transcripts").strip() or "youtube-transcripts"

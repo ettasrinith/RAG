@@ -12,7 +12,7 @@ connectors:
   github_files:
     enabled: true
     mode: local
-    local_path: C:/Users/I775585/Downloads/learning-automation
+    local_path: data/test_md
     repo: ${GITHUB_REPO}
     pat: ${GITHUB_PAT}
     branch: ''
@@ -104,12 +104,50 @@ connectors:
   arxiv:
     enabled: false
     label: arxiv-papers
+    query: ''
     ids: []
     urls: []
+    max_results: 50
     include_pdf_text: true
     request_timeout_seconds: 20
     max_pdf_size_mb: 25
     min_text_chars: 50
+    delay_seconds: 3.0
+  openalex:
+    enabled: false
+    label: openalex-papers
+    query: ''
+    ids: []
+    api_key: ${OPENALEX_API_KEY}
+    max_results: 50
+    include_abstract: true
+    request_timeout_seconds: 20
+    min_text_chars: 50
+    delay_seconds: 0.1
+  semantic_scholar:
+    enabled: false
+    label: semantic-scholar
+    query: ''
+    ids: []
+    api_key: ${S2_API_KEY}
+    max_results: 50
+    include_abstract: true
+    request_timeout_seconds: 20
+    min_text_chars: 50
+    delay_seconds: 1.0
+  confluence:
+    enabled: false
+    label: confluence
+    base_url: ${CONFLUENCE_URL}
+    email: ${CONFLUENCE_EMAIL}
+    api_token: ${CONFLUENCE_API_TOKEN}
+    pat: ${CONFLUENCE_PAT}
+    query: ''
+    spaces: []
+    max_results: 200
+    request_timeout_seconds: 20
+    min_text_chars: 50
+    include_body: true
   youtube:
     enabled: false
     label: youtube-transcripts
@@ -122,11 +160,11 @@ connectors:
     min_text_chars: 40
 llm:
   provider: litellm
-  model: gpt-5.4
-  base_url: http://localhost:6655/litellm
+  model: mimo-v2.5-free
+  base_url: https://opencode.ai/zen/v1
+  api_key: ${ZEN_API_KEY}
   max_tokens: 2000
   temperature: 0.2
-# For Ollama set provider: ollama and base_url like http://localhost:11434/v1
 search:
   top_k: 10
   rerank: true

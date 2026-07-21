@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from core.config import resolve_data_path
+
 
 @dataclass
 class HierarchyNode:
@@ -22,7 +24,7 @@ class HierarchyIndex:
     def __init__(self, repo: str, max_depth: int = 10, storage_path: str = "./data/hierarchy"):
         self.repo = repo
         self.max_depth = max_depth
-        self.storage_path = Path(storage_path)
+        self.storage_path = resolve_data_path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         self.nodes: dict[str, HierarchyNode] = {}
         self._load()

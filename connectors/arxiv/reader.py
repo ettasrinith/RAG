@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import re
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Iterator
@@ -16,19 +17,25 @@ ARXIV_API = "https://export.arxiv.org/api/query"
 PDF_URL_RE = re.compile(r"/pdf/([0-9]{4}\.[0-9]{4,5})(?:\.pdf)?$")
 ABS_URL_RE = re.compile(r"/abs/([0-9]{4}\.[0-9]{4,5})(?:v\d+)?$")
 
+USER_AGENT = "KnowledgeHubBot/1.0 (+https://localhost)"
+
 
 class ArxivConnector(BaseConnector):
     name = "arxiv"
 
     def __init__(self, config: dict):
         super().__init__(config)
+        self.query = (config.get("query") or "").strip()
         self.ids = self._normalize_inputs(config.get("ids"))
         self.urls = self._normalize_inputs(config.get("urls"))
         self.label = (config.get("label") or "arxiv-papers").strip() or "arxiv-papers"
+        self.max_results = int(config.get("max_results", 50))
         self.include_pdf_text = bool(config.get("include_pdf_text", True))
         self.timeout = float(config.get("request_timeout_seconds", 20))
         self.min_text_chars = int(config.get("min_text_chars", 50))
         self.max_pdf_bytes = int(config.get("max_pdf_size_mb", 25)) * 1024 * 1024
+        # arXiv asks clients to space requests ~3s apart under load.
+        self.delay_seconds = float(config.get("delay_seconds", 3.0))
 
     def get_repo_name(self) -> str:
         return self.label
@@ -67,11 +74,33 @@ class ArxivConnector(BaseConnector):
                 seen.add(pid)
         return ids
 
-    def _fetch_feed(self, paper_ids: list[str]) -> str:
-        params = {"id_list": ",".join(paper_ids), "max_results": len(paper_ids)}
-        resp = httpx.get(ARXIV_API, params=params, timeout=self.timeout, headers={"User-Agent": "KnowledgeHubBot/1.0"})
+    def _fetch_feed(self, params: dict) -> str:
+        resp = httpx.get(ARXIV_API, params=params, timeout=self.timeout,
+                         headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
         return resp.text
+
+    def _search(self) -> list[dict]:
+        out: list[dict] = []
+        start = 0
+        limit = min(100, max(1, self.max_results))
+        while len(out) < self.max_results:
+            params = {
+                "search_query": f"all:{self.query}",
+                "start": start,
+                "max_results": limit,
+            }
+            feed = self._fetch_feed(params)
+            papers = self._parse_feed(feed)
+            if not papers:
+                break
+            out.extend(papers)
+            if len(papers) < limit:
+                break
+            start += limit
+            if self.delay_seconds > 0:
+                time.sleep(self.delay_seconds)
+        return out[: self.max_results]
 
     def _parse_feed(self, xml_text: str) -> list[dict]:
         ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
@@ -93,6 +122,9 @@ class ArxivConnector(BaseConnector):
                 (author.findtext("atom:name", default="", namespaces=ns) or "").strip()
                 for author in entry.findall("atom:author", ns)
             ]
+            comment = (entry.findtext("arxiv:comment", default="", namespaces=ns) or "").strip()
+            journal_ref = (entry.findtext("arxiv:journal_ref", default="", namespaces=ns) or "").strip()
+            doi = (entry.findtext("arxiv:doi", default="", namespaces=ns) or "").strip()
             pdf_url = f"https://arxiv.org/pdf/{pid}.pdf" if pid else ""
             abs_url = f"https://arxiv.org/abs/{pid}" if pid else paper_id_url
             for link in entry.findall("atom:link", ns):
@@ -108,6 +140,9 @@ class ArxivConnector(BaseConnector):
                 "primary_category": primary_category,
                 "categories": categories,
                 "authors": authors,
+                "comment": comment,
+                "journal_ref": journal_ref,
+                "doi": doi,
                 "pdf_url": pdf_url,
                 "abs_url": abs_url,
             })
@@ -125,7 +160,7 @@ class ArxivConnector(BaseConnector):
         if not pdf_url:
             return ""
         try:
-            resp = httpx.get(pdf_url, timeout=self.timeout)
+            resp = httpx.get(pdf_url, timeout=self.timeout, headers={"User-Agent": USER_AGENT})
             resp.raise_for_status()
             data = resp.content
             if len(data) > self.max_pdf_bytes:
@@ -140,16 +175,23 @@ class ArxivConnector(BaseConnector):
             return ""
 
     def load_documents(self) -> Iterator[Document]:
-        paper_ids = self._paper_ids()
-        if not paper_ids:
-            raise ValueError("Provide at least one arXiv ID or URL")
+        if self.query:
+            papers = self._search()
+        else:
+            paper_ids = self._paper_ids()
+            if not paper_ids:
+                raise ValueError("Provide an arXiv query, or at least one ID/URL")
+            params = {"id_list": ",".join(paper_ids), "max_results": len(paper_ids)}
+            feed = self._fetch_feed(params)
+            papers = self._parse_feed(feed)
 
-        feed = self._fetch_feed(paper_ids)
-        papers = self._parse_feed(feed)
         if not papers:
             raise ValueError("No arXiv papers found for the provided inputs")
 
-        for paper in papers:
+        for idx, paper in enumerate(papers):
+            if idx > 0 and self.delay_seconds > 0:
+                time.sleep(self.delay_seconds)
+
             abstract = (paper.get("summary") or "").strip()
             pdf_text = self._read_pdf_text(paper.get("pdf_url", "")) if self.include_pdf_text else ""
             sections = []
@@ -161,6 +203,12 @@ class ArxivConnector(BaseConnector):
                 sections.append(f"Primary category: {paper['primary_category']}")
             if paper.get("categories"):
                 sections.append(f"Categories: {', '.join(paper['categories'])}")
+            if paper.get("comment"):
+                sections.append(f"Comment: {paper['comment']}")
+            if paper.get("journal_ref"):
+                sections.append(f"Journal reference: {paper['journal_ref']}")
+            if paper.get("doi"):
+                sections.append(f"DOI: {paper['doi']}")
             if abstract:
                 sections.append(f"Abstract:\n{abstract}")
             if pdf_text:
@@ -187,6 +235,9 @@ class ArxivConnector(BaseConnector):
                     "abs_url": paper.get("abs_url", ""),
                     "primary_category": paper.get("primary_category", ""),
                     "categories": paper.get("categories", []),
+                    "comment": paper.get("comment", ""),
+                    "journal_ref": paper.get("journal_ref", ""),
+                    "doi": paper.get("doi", ""),
                     "authors": paper.get("authors", []),
                     "mode": "arxiv",
                 },

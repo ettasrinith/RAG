@@ -127,13 +127,31 @@ Paste arXiv IDs or arXiv URLs and index:
 - abstract
 - PDF-extracted full text when available
 
-### 5. YouTube transcript mode
+### 5. OpenAlex mode
+Index 250M+ scholarly works via the OpenAlex API. Set a free API key
+(`OPENALEX_API_KEY` in `.env`) and provide a keyword query or a list of
+OpenAlex/DOI IDs. Indexes title, authors, venue, year, citation count, DOI,
+and the reconstructed abstract.
+
+### 6. Semantic Scholar mode
+Index 200M+ papers via the Semantic Scholar Graph API — the open,
+no-key substitute for broad "Google Scholar-like" academic search. Provide a
+keyword query or IDs/DOIs. Indexes metadata, abstract, generated TLDR, and
+citation counts. Optionally set `S2_API_KEY` to raise the rate limit.
+
+### 7. Confluence mode
+Index pages from an Atlassian Confluence wiki (internal company/team
+knowledge). Provide a `base_url` plus either an email + API token
+(Confluence Cloud) or a personal access token (Server/Data Center). Filter by
+CQL query and/or space keys. Page bodies are converted to plain text.
+
+### 8. YouTube transcript mode
 Paste video URLs or IDs and index:
 - transcript text
 - timestamps
 - title and channel metadata
 
-### 6. ZIP upload mode
+### 9. ZIP upload mode
 Upload a ZIP of notes, docs, markdown, or project files. The app safely extracts
 supported files and indexes them as a document collection.
 

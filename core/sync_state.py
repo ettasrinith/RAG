@@ -5,10 +5,12 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from core.config import resolve_data_path
+
 
 class SyncState:
     def __init__(self, path: str = "./data/sync_state.json"):
-        self.path = Path(path)
+        self.path = resolve_data_path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._state: dict = self._load()
 

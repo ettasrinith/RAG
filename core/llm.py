@@ -36,6 +36,7 @@ class LLMClient:
         self.max_tokens = int(config.get("max_tokens", 2000))
         self.temperature = float(config.get("temperature", 0.2))
         self.base_url = config.get("base_url", "")
+        self.api_key = (config.get("api_key") or "").strip()
 
     def answer(self, question: str, sources: list[dict]) -> Iterator[str]:
         context = _format_sources(sources)
@@ -128,10 +129,9 @@ Answer with inline citations like [1], [2]."""
     def _openai_stream(self, user_msg: str) -> Iterator[str]:
         from openai import OpenAI
 
-        kwargs: dict = {"api_key": os.environ.get("OPENAI_API_KEY") or
-                                    os.environ.get("LITELLM_API_KEY") or
-                                    os.environ.get("OLLAMA_API_KEY", "dummy"),
-                        "timeout": _TIMEOUT}
+        api_key = self.api_key or os.environ.get("OPENAI_API_KEY") or \
+            os.environ.get("LITELLM_API_KEY") or os.environ.get("OLLAMA_API_KEY", "dummy")
+        kwargs: dict = {"api_key": api_key, "timeout": _TIMEOUT}
         base = self.base_url or os.environ.get("LITELLM_BASE_URL") or os.environ.get("OLLAMA_BASE_URL")
         if base:
             kwargs["base_url"] = base
@@ -155,10 +155,9 @@ Answer with inline citations like [1], [2]."""
     def _openai_complete(self, prompt: str, system_prompt: str) -> str:
         from openai import OpenAI
 
-        kwargs: dict = {"api_key": os.environ.get("OPENAI_API_KEY") or
-                                    os.environ.get("LITELLM_API_KEY") or
-                                    os.environ.get("OLLAMA_API_KEY", "dummy"),
-                        "timeout": _TIMEOUT}
+        api_key = self.api_key or os.environ.get("OPENAI_API_KEY") or \
+            os.environ.get("LITELLM_API_KEY") or os.environ.get("OLLAMA_API_KEY", "dummy")
+        kwargs: dict = {"api_key": api_key, "timeout": _TIMEOUT}
         base = self.base_url or os.environ.get("LITELLM_BASE_URL") or os.environ.get("OLLAMA_BASE_URL")
         if base:
             kwargs["base_url"] = base
