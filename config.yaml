@@ -8,6 +8,11 @@ chunking:
 vector_store:
   path: ./data/lancedb
   table: knowledge
+research_store:
+  path: ./data/lancedb
+  table: research
+research:
+  catalog_path: ./data/research_catalog.json
 connectors:
   github_files:
     enabled: true

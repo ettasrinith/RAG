@@ -12,6 +12,7 @@ from core.config import resolve_data_path
 
 
 _SCHEMA_CACHE: dict[int, pa.Schema] = {}
+_RESEARCH_SCHEMA_CACHE: dict[int, pa.Schema] = {}
 
 
 def _schema(dim: int) -> pa.Schema:
@@ -34,22 +35,41 @@ def _schema(dim: int) -> pa.Schema:
     return _SCHEMA_CACHE[dim]
 
 
+def _research_schema(dim: int) -> pa.Schema:
+    if dim not in _RESEARCH_SCHEMA_CACHE:
+        base = _schema(dim)
+        _RESEARCH_SCHEMA_CACHE[dim] = base.append(
+            pa.field("paper_id", pa.string())
+        ).append(
+            pa.field("year", pa.int32())
+        ).append(
+            pa.field("venue", pa.string())
+        ).append(
+            pa.field("citation_count", pa.int32())
+        ).append(
+            pa.field("collection", pa.string())
+        )
+    return _RESEARCH_SCHEMA_CACHE[dim]
+
+
 def _esc(val: str) -> str:
     return val.replace("'", "''")
 
 
 class VectorStore:
     def __init__(self, path: str = "./data/lancedb", table: str = "knowledge",
-                 dim: int = 768):
+                 dim: int = 768, schema_type: str = "default"):
         path = resolve_data_path(path)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.db = lancedb.connect(path)
         self.table_name = table
         self.dim = dim
+        self.schema_type = schema_type
         if table in self.db.table_names():
             self.table = self.db.open_table(table)
         else:
-            self.table = self.db.create_table(table, schema=_schema(dim))
+            schema = _research_schema(dim) if schema_type == "research" else _schema(dim)
+            self.table = self.db.create_table(table, schema=schema)
 
     def upsert(self, rows: list[dict]) -> None:
         if not rows:
@@ -88,12 +108,15 @@ class VectorStore:
         return q.to_list()
 
     def fts_search(self, query: str, k: int = 10,
+                   source_filter: str | None = None,
                    repo_filter: str | None = None) -> list[dict]:
         try:
             if self.count() == 0:
                 return []
             self.ensure_fts()
             q = self.table.search(query, query_type="fts").limit(k)
+            if source_filter:
+                q = q.where(f"source = '{_esc(source_filter)}'")
             if repo_filter:
                 q = q.where(f"repo = '{_esc(repo_filter)}'")
             return q.to_list()

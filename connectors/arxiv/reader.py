@@ -80,6 +80,12 @@ class ArxivConnector(BaseConnector):
         resp.raise_for_status()
         return resp.text
 
+    def search_papers(self, query: str, limit: int = 30) -> list[dict]:
+        """Thin wrapper returning raw dicts for the research discover pipeline."""
+        self.query = query
+        self.max_results = limit
+        return self._search()
+
     def _search(self) -> list[dict]:
         out: list[dict] = []
         start = 0

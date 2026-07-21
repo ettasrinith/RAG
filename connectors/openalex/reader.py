@@ -60,6 +60,13 @@ class OpenAlexConnector(BaseConnector):
         positions.sort(key=lambda x: x[0])
         return " ".join(w for _, w in positions).strip()
 
+    def search_papers(self, query: str, limit: int = 30) -> list[dict]:
+        """Thin wrapper returning raw dicts for the research discover pipeline."""
+        self.query = query
+        self.max_results = limit
+        params = {"search": self.query, "sort": "relevance_score:desc"}
+        return self._fetch(params)
+
     def _fetch(self, params: dict) -> list[dict]:
         out: list[dict] = []
         page = 1

@@ -33,6 +33,19 @@ store = VectorStore(
     table=config["vector_store"]["table"],
     dim=config["embedding"]["dim"],
 )
+
+# Research store — same DB file, separate table
+_research_cfg = config.get("research_store", {})
+_research_store_path = _research_cfg.get("path", "./data/lancedb")
+if not Path(_research_store_path).is_absolute():
+    _research_store_path = str(ROOT / _research_store_path)
+research_store = VectorStore(
+    path=_research_store_path,
+    table=_research_cfg.get("table", "research"),
+    dim=config["embedding"]["dim"],
+    schema_type="research",
+)
+
 llm = LLMClient(config["llm"])
 sync_state = SyncState(config.get("sync", {}).get("track_state", "./data/sync_state.json"))
 
@@ -61,7 +74,7 @@ _current_index_result = None
 
 
 def _recreate_runtime() -> None:
-    global config, store, llm, sync_state, _reranker, _kg_index, _reranker_config
+    global config, store, research_store, llm, sync_state, _reranker, _kg_index, _reranker_config
     config = load_config()
     _store_path = config["vector_store"]["path"]
     if not Path(_store_path).is_absolute():
@@ -70,6 +83,16 @@ def _recreate_runtime() -> None:
         path=_store_path,
         table=config["vector_store"]["table"],
         dim=config["embedding"]["dim"],
+    )
+    _research_cfg = config.get("research_store", {})
+    _research_store_path = _research_cfg.get("path", "./data/lancedb")
+    if not Path(_research_store_path).is_absolute():
+        _research_store_path = str(ROOT / _research_store_path)
+    research_store = VectorStore(
+        path=_research_store_path,
+        table=_research_cfg.get("table", "research"),
+        dim=config["embedding"]["dim"],
+        schema_type="research",
     )
     llm = LLMClient(config["llm"])
     sync_state = SyncState(config.get("sync", {}).get("track_state", "./data/sync_state.json"))
@@ -126,7 +149,8 @@ def retrieve(query: str, k: int, source: str | None = None, repo: str | None = N
         vector_hits = store.search(qvec, k=max(k * 2, 20),
                                    source_filter=source, repo_filter=repo,
                                    hierarchy_filter=hierarchy)
-        fts_hits = store.fts_search(query, k=max(k * 2, 20), repo_filter=repo)
+        fts_hits = store.fts_search(query, k=max(k * 2, 20),
+                                    source_filter=source, repo_filter=repo)
         results = hybrid_search(vector_hits, fts_hits,
                                 vector_weight=0.7, fts_weight=0.3, top_k=k * 2)
     else:
@@ -162,6 +186,31 @@ class ChatRequest(BaseModel):
     k: int = Field(default=8, ge=1, le=50)
     source: str | None = None
     repo: str | None = None
+    scope: str | None = Field(default=None, pattern="^(main|research)$")
+
+
+def retrieve_research(query: str, k: int, collection: str | None = None,
+                      year_from: int | None = None,
+                      hybrid: bool = True) -> list[dict]:
+    """Retrieve from the research table with optional collection/year filters."""
+    qvec = embed_query(query, model_name=config["embedding"]["model"])
+    if hybrid:
+        vector_hits = research_store.search(qvec, k=max(k * 2, 20))
+        fts_hits = research_store.fts_search(query, k=max(k * 2, 20))
+        results = hybrid_search(vector_hits, fts_hits,
+                                vector_weight=0.7, fts_weight=0.3, top_k=k * 2)
+    else:
+        results = research_store.search(qvec, k=k)
+
+    # Apply collection filter
+    if collection:
+        results = [r for r in results if (r.get("collection") or "default") == collection]
+
+    # Apply year filter
+    if year_from:
+        results = [r for r in results if (r.get("year") or 0) >= year_from]
+
+    return results[:k]
 
 
 class WebAskRequest(BaseModel):
@@ -458,9 +507,12 @@ def search(req: SearchRequest, _: None = Depends(_require_auth)):
 
 @app.post("/chat")
 def chat(req: ChatRequest, _: None = Depends(_require_auth)):
-    # Use the same hybrid + rerank pipeline as /search for higher-quality answers.
-    hits = retrieve(req.q, req.k, source=req.source, repo=req.repo,
-                    hybrid=True, rerank=True)
+    # Determine which store to retrieve from based on scope
+    if req.scope == "research":
+        hits = retrieve_research(req.q, req.k, hybrid=True)
+    else:
+        hits = retrieve(req.q, req.k, source=req.source, repo=req.repo,
+                        hybrid=True, rerank=True)
 
     sources = [
         {
@@ -1000,6 +1052,183 @@ async def upload_zip(
     except Exception as e:
         cleanup_upload_dir(upload_dir)
         raise HTTPException(status_code=400, detail=f"zip upload failed: {e}")
+
+
+# ─── Research endpoints ────────────────────────────────────────────────
+
+class DiscoverRequest(BaseModel):
+    q: str = Field(..., min_length=1, max_length=500)
+    sources: list[str] = Field(default_factory=lambda: ["arxiv", "semantic_scholar", "openalex"])
+    limit_per_source: int = Field(default=30, ge=1, le=100)
+    year_from: int | None = None
+    year_to: int | None = None
+
+
+class ResearchIndexRequest(BaseModel):
+    paper_ids: list[str] = Field(..., min_length=1)
+    papers: list[dict] = Field(default_factory=list)
+    collection: str = Field(default="default", max_length=100)
+
+
+class ResearchSearchRequest(BaseModel):
+    q: str = Field(..., min_length=1, max_length=500)
+    k: int = Field(default=10, ge=1, le=100)
+    collection: str | None = None
+    year_from: int | None = None
+    year_to: int | None = None
+    hybrid: bool = True
+
+
+class ResearchDeleteRequest(BaseModel):
+    paper_ids: list[str] = Field(..., min_length=1)
+
+
+@app.post("/research/discover")
+def research_discover(req: DiscoverRequest, _: None = Depends(_require_auth)):
+    """Discover papers from academic sources."""
+    from core.research.discover import discover_papers
+    from core.research.catalog import PaperCatalog
+    from core.research.models import DiscoverRequest as DR, PaperCard
+
+    catalog_path = config.get("research", {}).get("catalog_path", "./data/research_catalog.json")
+    catalog = PaperCatalog(catalog_path)
+
+    discover_req = DR(
+        q=req.q,
+        sources=req.sources,
+        limit_per_source=req.limit_per_source,
+        year_from=req.year_from,
+        year_to=req.year_to,
+    )
+    result = discover_papers(discover_req, catalog)
+    return {
+        "papers": [p.model_dump() for p in result.papers],
+        "total_found": result.total_found,
+        "already_indexed": result.already_indexed,
+        "sources_queried": result.sources_queried,
+    }
+
+
+@app.post("/research/index")
+def research_index(req: ResearchIndexRequest, _: None = Depends(_require_auth)):
+    """Index selected papers into the research store."""
+    from core.research.indexer import index_papers
+    from core.research.models import PaperCard
+    import queue as _queue
+
+    # Convert dicts back to PaperCard objects
+    papers = []
+    for p in req.papers:
+        if isinstance(p, dict):
+            papers.append(PaperCard(**p))
+        elif isinstance(p, PaperCard):
+            papers.append(p)
+
+    if not papers:
+        raise HTTPException(status_code=400, detail="no papers to index")
+
+    progress_q = _queue.Queue()
+
+    def _progress_cb(event):
+        progress_q.put(event)
+
+    def _run():
+        try:
+            index_papers(papers, collection=req.collection, progress_cb=_progress_cb)
+        except Exception as e:
+            progress_q.put({"type": "error", "error": str(e)})
+        finally:
+            progress_q.put(None)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    def stream():
+        while True:
+            event = progress_q.get()
+            if event is None:
+                break
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.post("/research/search")
+def research_search(req: ResearchSearchRequest, _: None = Depends(_require_auth)):
+    """Search the research store."""
+    results = retrieve_research(
+        req.q, req.k,
+        collection=req.collection,
+        year_from=req.year_from,
+        hybrid=req.hybrid,
+    )
+    return {"results": [
+        {
+            "title": h.get("title"),
+            "url": h.get("url"),
+            "source": h.get("source"),
+            "collection": h.get("collection", "default"),
+            "author": h.get("author"),
+            "snippet": (h.get("text") or "")[:500],
+            "summary": h.get("summary", ""),
+            "score": h.get("combined_score") or h.get("rerank_score") or h.get("_distance"),
+            "year": h.get("year"),
+            "paper_id": h.get("paper_id", ""),
+        }
+        for h in results
+    ]}
+
+
+@app.get("/research/catalog")
+def research_catalog(collection: str | None = None, _: None = Depends(_require_auth)):
+    """List papers in the catalog, optionally filtered by collection."""
+    from core.research.catalog import PaperCatalog
+    catalog_path = config.get("research", {}).get("catalog_path", "./data/research_catalog.json")
+    catalog = PaperCatalog(catalog_path)
+
+    if collection:
+        ids = catalog.ids_by_collection(collection)
+    else:
+        ids = catalog.all_ids()
+
+    return {
+        "papers": ids,
+        "count": len(ids),
+        "collections": catalog.list_collections(),
+    }
+
+
+@app.post("/research/delete")
+def research_delete(req: ResearchDeleteRequest, _: None = Depends(_require_auth)):
+    """Delete papers from the research store by paper_id."""
+    from core.research.catalog import PaperCatalog
+    catalog_path = config.get("research", {}).get("catalog_path", "./data/research_catalog.json")
+    catalog = PaperCatalog(catalog_path)
+
+    deleted = 0
+    for pid in req.paper_ids:
+        # Delete from LanceDB
+        research_store.table.delete(f"paper_id = '{pid}'")
+        # Remove from catalog
+        catalog.unmark(pid)
+        deleted += 1
+
+    return {"deleted": deleted}
+
+
+@app.get("/research/collections")
+def research_collections(_: None = Depends(_require_auth)):
+    """List all research collections."""
+    from core.research.catalog import PaperCatalog
+    catalog_path = config.get("research", {}).get("catalog_path", "./data/research_catalog.json")
+    catalog = PaperCatalog(catalog_path)
+
+    collections = catalog.list_collections()
+    counts = {}
+    for c in collections:
+        counts[c] = len(catalog.ids_by_collection(c))
+
+    return {"collections": collections, "counts": counts}
 
 
 @app.post("/graph/query")

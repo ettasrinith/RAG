@@ -5,52 +5,204 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Knowledge Hub</title>
   <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="app">
-    <nav class="nav">
-      <div class="nav-brand">
-        <div class="nav-logo">KH</div>
-        <span>Knowledge Hub</span>
-      </div>
-      <div class="nav-links">
-        <button class="nav-btn active" data-page="index">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Index
-        </button>
-        <button class="nav-btn" data-page="search">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/" class="logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        Knowledge Hub
+      </a>
+      <nav class="topnav">
+        <button class="topnav-btn active" data-page="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           Search
         </button>
-        <button class="nav-btn" data-page="chat">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <button class="topnav-btn" data-page="research">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+          Research
+        </button>
+        <button class="topnav-btn" data-page="index">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Index
+        </button>
+        <button class="topnav-btn" data-page="chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           Chat
         </button>
-      </div>
-      <div class="nav-status" id="navStatus">
-        <span class="status-dot"></span>
+      </nav>
+      <div class="topbar-status">
+        <span class="status-dot" id="statusDot"></span>
         <span id="statusText">Ready</span>
       </div>
-    </nav>
+    </div>
+  </header>
 
-    <main class="content">
+  <main class="main">
 
-      <!-- INDEX PAGE -->
-      <section class="page active" id="page-index">
-        <div class="page-header">
-          <h1>Add content</h1>
-          <p>Pick a source, configure it, and index it into your knowledge base.</p>
+    <!-- SEARCH PAGE (default) -->
+    <section class="page active" id="page-search">
+      <div class="search-hero">
+        <h1>Knowledge Hub</h1>
+        <p>Search across all your indexed content — files, docs, papers, and more.</p>
+        <form id="searchForm" onsubmit="return doSearch(event)" class="search-box">
+          <div class="search-input-wrap">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="searchQuery" placeholder="Search your knowledge base..." required autofocus>
+            <button type="submit" class="search-btn" id="searchBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          <div class="search-options">
+            <select id="searchRepo">
+              <option value="">All sources</option>
+            </select>
+            <select id="searchSource">
+              <option value="">All types</option>
+              <option value="github_files">Files</option>
+              <option value="website">Website</option>
+              <option value="documents">Documents</option>
+              <option value="arxiv">arXiv</option>
+              <option value="youtube">YouTube</option>
+            </select>
+            <label class="toggle">
+              <input type="checkbox" id="searchHybrid" checked>
+              <span class="toggle-slider"></span>
+              Hybrid search
+            </label>
+          </div>
+        </form>
+      </div>
+      <div id="searchResults" class="search-results"></div>
+    </section>
+
+    <!-- RESEARCH PAGE -->
+    <section class="page" id="page-research">
+      <div class="section-header">
+        <h2>Research Discovery</h2>
+        <p>Search academic sources, curate papers, and index them into your research library.</p>
+      </div>
+
+      <!-- Discover Zone -->
+      <div class="research-zone">
+        <h3 class="zone-title">Discover</h3>
+        <form id="discoverForm" onsubmit="return doDiscover(event)" class="search-box">
+          <div class="search-input-wrap">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="discoverQuery" placeholder="Search papers..." required>
+            <button type="submit" class="search-btn" id="discoverBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          <div class="search-options">
+            <label class="toggle">
+              <input type="checkbox" id="srcArxiv" checked>
+              <span class="toggle-slider"></span>
+              arXiv
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="srcS2" checked>
+              <span class="toggle-slider"></span>
+              Semantic Scholar
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="srcOA" checked>
+              <span class="toggle-slider"></span>
+              OpenAlex
+            </label>
+            <select id="discoverLimit">
+              <option value="10">10 per source</option>
+              <option value="20">20 per source</option>
+              <option value="30" selected>30 per source</option>
+              <option value="50">50 per source</option>
+            </select>
+          </div>
+        </form>
+        <div id="discoverStatus" class="research-status hidden"></div>
+        <div id="discoverResults" class="paper-grid"></div>
+        <div class="research-actions hidden" id="discoverActions">
+          <button class="btn primary" id="indexSelectedBtn" onclick="indexSelectedPapers()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Index Selected
+          </button>
+          <select id="collectionPicker" class="collection-select">
+            <option value="default">Default collection</option>
+          </select>
+          <span class="selected-count" id="selectedCount">0 selected</span>
         </div>
+      </div>
 
-        <div class="source-tabs">
-          <button class="source-tab active" data-source="local">Folder</button>
-          <button class="source-tab" data-source="github">GitHub</button>
-          <button class="source-tab" data-source="website">Website</button>
-          <button class="source-tab" data-source="arxiv">arXiv</button>
-          <button class="source-tab" data-source="youtube">YouTube</button>
-          <button class="source-tab" data-source="zip">ZIP</button>
+      <!-- Library Zone -->
+      <div class="research-zone">
+        <h3 class="zone-title">Library</h3>
+        <div class="library-toolbar">
+          <select id="libraryCollection" onchange="loadLibrary()">
+            <option value="">All collections</option>
+          </select>
+          <button class="btn" onclick="loadLibrary()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            Refresh
+          </button>
         </div>
+        <div id="libraryResults" class="paper-grid"></div>
+      </div>
 
+      <!-- Indexing Progress -->
+      <div class="card hidden" id="researchProgressCard">
+        <div class="card-head">
+          <h3>Research Indexing Progress</h3>
+          <span class="badge" id="researchProgressBadge">Idle</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="researchProgressFill"></div>
+        </div>
+        <div class="progress-info">
+          <span id="researchProgressLabel">Waiting...</span>
+          <span id="researchProgressPercent">0%</span>
+        </div>
+        <div class="log" id="researchProgressLog"></div>
+      </div>
+    </section>
+
+    <!-- INDEX PAGE -->
+    <section class="page" id="page-index">
+      <div class="section-header">
+        <h2>Add Content</h2>
+        <p>Configure a source and index it into your knowledge base.</p>
+      </div>
+
+      <div class="source-tabs">
+        <button class="source-tab active" data-source="local">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          Folder
+        </button>
+        <button class="source-tab" data-source="github">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
+          GitHub
+        </button>
+        <button class="source-tab" data-source="website">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          Website
+        </button>
+        <button class="source-tab" data-source="arxiv">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 016.5 2H20v20H6.5a2.5 2.5 0 010-5H20"/></svg>
+          arXiv
+        </button>
+        <button class="source-tab" data-source="youtube">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          YouTube
+        </button>
+        <button class="source-tab" data-source="zip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          ZIP
+        </button>
+      </div>
+
+      <div class="panels">
         <!-- Local -->
         <div class="source-panel active" id="panel-local">
           <div class="field">
@@ -96,27 +248,26 @@
               <label>Max depth</label>
               <input type="number" id="websiteMaxDepth" value="2" min="0" max="10">
             </div>
-            <label class="checkbox">
-              <input type="checkbox" id="websiteSameDomainOnly" checked>
-              Same domain only
-            </label>
           </div>
+          <label class="toggle">
+            <input type="checkbox" id="websiteSameDomainOnly" checked>
+            <span class="toggle-slider"></span>
+            Same domain only
+          </label>
         </div>
 
         <!-- arXiv -->
         <div class="source-panel" id="panel-arxiv">
           <div class="field">
-            <label>Topic search (query all fields)</label>
+            <label>Search query</label>
             <input type="text" id="arxivQuery" placeholder="e.g. transformer attention mechanism">
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Max results</label>
-              <input type="number" id="arxivMaxResults" value="50" min="1" max="1000">
-            </div>
+          <div class="field">
+            <label>Max results</label>
+            <input type="number" id="arxivMaxResults" value="50" min="1" max="1000">
           </div>
           <div class="field">
-            <label>Or specific arXiv IDs/URLs (one per line)</label>
+            <label>Or specific arXiv IDs / URLs (one per line)</label>
             <textarea id="arxivIds" rows="3" placeholder="1706.03762&#10;https://arxiv.org/abs/2401.00001"></textarea>
           </div>
         </div>
@@ -133,91 +284,77 @@
         <div class="source-panel" id="panel-zip">
           <div class="field">
             <label>Upload a ZIP of notes, docs, or project files</label>
-            <input type="file" id="zipFile" accept=".zip">
-          </div>
-          <div id="zipSummary" class="hidden"></div>
-        </div>
-
-        <div class="index-actions">
-          <label class="checkbox">
-            <input type="checkbox" id="forceFull">
-            Force full re-index
-          </label>
-          <div class="btn-group">
-            <button class="btn" onclick="saveSourceConfig()">Save</button>
-            <button class="btn primary" id="startBtn" onclick="startIndexing()">Start indexing</button>
-            <button class="btn danger" id="stopBtn" onclick="stopIndexing()" disabled>Stop</button>
-          </div>
-        </div>
-
-        <div class="card hidden" id="progressCard">
-          <div class="card-header">
-            <h3>Progress</h3>
-            <span class="badge" id="progressBadge">Idle</span>
-          </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="progressFill"></div>
-          </div>
-          <div class="progress-info">
-            <span id="progressLabel">Waiting...</span>
-            <span id="progressPercent">0%</span>
-          </div>
-          <div class="log" id="progressLog"></div>
-        </div>
-      </section>
-
-      <!-- SEARCH PAGE -->
-      <section class="page" id="page-search">
-        <div class="page-header">
-          <h1>Search</h1>
-          <p>Find anything across your indexed content.</p>
-        </div>
-
-        <form id="searchForm" onsubmit="return doSearch(event)">
-          <div class="search-bar">
-            <input type="text" id="searchQuery" placeholder="Search your knowledge base..." required autofocus>
-            <button type="submit" class="btn primary" id="searchBtn">Search</button>
-          </div>
-          <div class="search-filters">
-            <select id="searchRepo">
-              <option value="">All sources</option>
-            </select>
-            <select id="searchSource">
-              <option value="">All types</option>
-              <option value="github_files">Files</option>
-              <option value="github_commits">Commits</option>
-              <option value="website">Website</option>
-              <option value="documents">Documents</option>
-              <option value="arxiv">arXiv</option>
-              <option value="youtube">YouTube</option>
-            </select>
-            <label class="checkbox">
-              <input type="checkbox" id="searchHybrid" checked>
-              Hybrid
-            </label>
-          </div>
-        </form>
-
-        <div id="searchResults"></div>
-      </section>
-
-      <!-- CHAT PAGE -->
-      <section class="page" id="page-chat">
-        <div class="chat-container">
-          <div class="chat-messages" id="chatMessages">
-            <div class="msg assistant">
-              <div class="bubble">Ask me anything about your indexed content. I'll answer with sources.</div>
+            <div class="upload-zone" id="uploadZone">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <p>Drag & drop a .zip file or click to browse</p>
+              <input type="file" id="zipFile" accept=".zip" hidden>
             </div>
+            <div id="zipSummary" class="hidden"></div>
           </div>
-          <form class="chat-bar" onsubmit="return sendChat(event)">
-            <input type="text" id="chatInput" placeholder="Ask a question...">
-            <button type="submit" class="btn primary" id="chatBtn">Send</button>
-          </form>
         </div>
-      </section>
+      </div>
 
-    </main>
-  </div>
+      <div class="index-footer">
+        <label class="toggle">
+          <input type="checkbox" id="forceFull">
+          <span class="toggle-slider"></span>
+          Force full re-index
+        </label>
+        <div class="btn-group">
+          <button class="btn" onclick="saveSourceConfig()">Save</button>
+          <button class="btn primary" id="startBtn" onclick="startIndexing()">Start indexing</button>
+          <button class="btn danger" id="stopBtn" onclick="stopIndexing()" disabled>Stop</button>
+        </div>
+      </div>
+
+      <div class="card hidden" id="progressCard">
+        <div class="card-head">
+          <h3>Indexing Progress</h3>
+          <span class="badge" id="progressBadge">Idle</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-info">
+          <span id="progressLabel">Waiting...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="log" id="progressLog"></div>
+      </div>
+    </section>
+
+    <!-- CHAT PAGE -->
+    <section class="page" id="page-chat">
+      <div class="chat-wrap">
+        <div class="chat-scope-bar">
+          <label class="toggle">
+            <input type="checkbox" id="chatScopeToggle" onchange="toggleChatScope()">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="chatScopeLabel">Ask about my papers</span>
+          <select id="chatScope" class="hidden">
+            <option value="main">Main Knowledge Base</option>
+            <option value="research">Research Library</option>
+          </select>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg assistant">
+            <div class="bubble">Ask me anything about your indexed content. I'll answer with sources.</div>
+          </div>
+        </div>
+        <form class="chat-input" onsubmit="return sendChat(event)">
+          <input type="text" id="chatInput" placeholder="Ask a question..." autocomplete="off">
+          <button type="submit" class="chat-send" id="chatBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Keyboard shortcut hint -->
+  <div class="kbd-hint hidden" id="kbdHint">Press <kbd>/</kbd> to search</div>
 
   <div class="toasts" id="toasts"></div>
   <script src="/static/app.js" defer></script>
