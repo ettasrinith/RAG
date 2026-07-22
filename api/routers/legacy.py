@@ -24,6 +24,9 @@ from core.embedder import embed, embed_query
 from core.search.fusion import rrf_fuse
 from core.search.reranker import rerank
 from api.deps import get_llm, get_store, get_research_store, get_session
+from core.logging import get_logger
+
+log = get_logger("legacy")
 
 router = APIRouter(tags=["legacy"])
 
@@ -36,6 +39,41 @@ _current_index_result = None
 API_KEY = os.environ.get("KH_API_KEY", "")
 
 
+# ─── Pydantic models for legacy dict-based endpoints ──────────────
+
+class SearchRequest(BaseModel):
+    q: str = Field(..., min_length=1, max_length=500)
+    k: int = Field(default=10, ge=1, le=100)
+    source: str | None = None
+    repo: str | None = None
+
+
+class ChatRequest(BaseModel):
+    q: str = Field(..., min_length=1, max_length=2000)
+    k: int = Field(default=8, ge=1, le=50)
+
+
+class SyncStartRequest(BaseModel):
+    pass  # No request body fields required
+
+
+class ConfigRequest(BaseModel):
+    github_repo: str | None = Field(default=None, max_length=500)
+    github_pat: str | None = Field(default=None, max_length=2000)
+    github_branch: str | None = Field(default=None, max_length=200)
+    github_mode: str | None = Field(default=None, max_length=50)
+    github_files_enabled: bool | None = None
+    repo_path: str | None = Field(default=None, max_length=1000)
+
+
+class WebAskRequest(BaseModel):
+    urls: list[str] | None = None
+    q: str = ""
+    k: int = Field(default=8, ge=1, le=50)
+    max_pages: int | None = Field(default=None, ge=1, le=1000)
+    max_depth: int | None = Field(default=None, ge=1, le=10)
+
+
 def _require_auth(request: Request):
     if not API_KEY:
         return
@@ -45,10 +83,16 @@ def _require_auth(request: Request):
 
 
 @router.get("/health")
-def health(store=Depends(get_store)):
+def health(store=Depends(get_store), research_store=Depends(get_research_store)):
+    research_count = 0
+    try:
+        research_count = research_store.count()
+    except Exception:
+        log.warning("research_store.count failed")
     return {
         "ok": True,
         "rows": store.count(),
+        "research_rows": research_count,
         "repos": store.list_repos(),
         "repo_counts": store.count_by_repo(),
         "embedding_model": config["embedding"]["model"],
@@ -58,11 +102,11 @@ def health(store=Depends(get_store)):
 
 
 @router.post("/search")
-def search(req: dict, store=Depends(get_store), research_store=Depends(get_research_store)):
-    q = req.get("q", "")
-    k = req.get("k", 10)
-    source = req.get("source")
-    repo = req.get("repo")
+def search(req: SearchRequest, store=Depends(get_store), research_store=Depends(get_research_store)):
+    q = req.q
+    k = req.k
+    source = req.source
+    repo = req.repo
 
     qvec = embed_query(q, model_name=config["embedding"]["model"])
     vector_hits = store.search(qvec, k=max(k * 2, 20), source_filter=source, repo_filter=repo)
@@ -81,8 +125,8 @@ def search(req: dict, store=Depends(get_store), research_store=Depends(get_resea
                 h.setdefault("source", "research")
                 h.setdefault("repo", h.get("collection", "research"))
             fused = rrf_fuse(fused, r_vec + r_fts, top_n=k * 2)
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("research search failed: %s", e)
 
     reranked = rerank(q, fused, top_k=k) if config.get("search", {}).get("rerank", False) else fused[:k]
 
@@ -105,9 +149,9 @@ def search(req: dict, store=Depends(get_store), research_store=Depends(get_resea
 
 
 @router.post("/chat")
-def chat(req: dict, llm=Depends(get_llm), store=Depends(get_store), research_store=Depends(get_research_store)):
-    q = req.get("q", "")
-    k = req.get("k", 8)
+def chat(req: ChatRequest, llm=Depends(get_llm), store=Depends(get_store), research_store=Depends(get_research_store)):
+    q = req.q
+    k = req.k
     qvec = embed_query(q, model_name=config["embedding"]["model"])
     vector_hits = store.search(qvec, k=max(k * 2, 20))
     fts_hits = store.fts_search(q, k=max(k * 2, 20))
@@ -121,8 +165,8 @@ def chat(req: dict, llm=Depends(get_llm), store=Depends(get_store), research_sto
             for h in r_vec + r_fts:
                 h.setdefault("source", "research")
             fused = rrf_fuse(fused, r_vec + r_fts, top_n=k * 2)
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("research chat search failed: %s", e)
 
     reranked = rerank(q, fused, top_k=k)
 
@@ -142,14 +186,12 @@ def chat(req: dict, llm=Depends(get_llm), store=Depends(get_store), research_sto
 
 
 @router.post("/sync/start")
-def sync_start(req: dict):
+def sync_start(req: SyncStartRequest):
     global _indexing_in_progress, _current_index_result
-    if _indexing_in_progress:
-        return {"error": "indexing already in progress"}
-    _stop_event.clear()
     with _index_lock:
         if _indexing_in_progress:
             return {"error": "indexing already in progress"}
+        _stop_event.clear()
         _indexing_in_progress = True
         _current_index_result = None
 
@@ -262,32 +304,11 @@ def view_file(path: str = ""):
     numbered = "\n".join(
         f'<span class="ln">{i+1}</span>{line}' for i, line in enumerate(lines)
     )
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{_html.escape(path)}</title>
-<style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #0f172a; color: #e2e8f0; }}
-  .bar {{ background: #1e293b; padding: 12px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }}
-  .bar a {{ color: #94a3b8; text-decoration: none; font-size: 14px; }}
-  .bar a:hover {{ color: #e2e8f0; }}
-  .bar .path {{ color: #e2e8f0; font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-  pre {{ padding: 16px 0; overflow-x: auto; font-size: 13px; line-height: 1.7; }}
-  code {{ display: block; }}
-  .ln {{ display: inline-block; width: 4em; text-align: right; padding-right: 1em; color: #475569; user-select: none; }}
-</style>
-</head>
-<body>
-  <div class="bar">
-    <a href="/">&larr; Back</a>
-    <span class="path">{_html.escape(path)}</span>
-  </div>
-  <pre><code>{numbered}</code></pre>
-</body>
-</html>"""
+    return _FILE_VIEWER_TEMPLATE.format(
+        title=_html.escape(path),
+        path=_html.escape(path),
+        numbered=numbered,
+    )
 
 
 @router.get("/folders")
@@ -317,15 +338,18 @@ def list_folders():
 @router.post("/uploads/zip")
 async def upload_zip(file: UploadFile = File(...), label: str = Form("upload")):
     import tempfile
+    import os as _os
     suffix = Path(file.filename or "archive.zip").suffix
     if suffix.lower() != ".zip":
         raise HTTPException(status_code=400, detail="only .zip files are accepted")
 
-    tmp = Path(tempfile.mktemp(suffix=".zip"))
+    fd, tmp_path = tempfile.mkstemp(suffix=".zip")
+    tmp = Path(tmp_path)
+    _os.close(fd)
     try:
         content = await file.read()
-        if len(content) > 200 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="file too large (max 200 MB)")
+        if len(content) > 50 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="file too large (max 50 MB)")
         tmp.write_bytes(content)
 
         out_dir = create_upload_dir(prefix=sanitize_name(label))
@@ -337,19 +361,19 @@ async def upload_zip(file: UploadFile = File(...), label: str = Form("upload")):
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         try: tmp.unlink(missing_ok=True)
-        except: pass
+        except Exception as e: log.warning("tempfile cleanup failed: %s", e)
 
 
 @router.post("/config")
-def save_config(req: dict):
+def save_config(req: ConfigRequest):
     current = load_config()
     gh = current.setdefault("connectors", {}).setdefault("github_files", {})
-    if "github_repo" in req: gh["repo"] = req["github_repo"]
-    if "github_pat" in req: gh["pat"] = req["github_pat"]
-    if "github_branch" in req: gh["branch"] = req["github_branch"]
-    if "github_mode" in req: gh["mode"] = req["github_mode"]
-    if "github_files_enabled" in req: gh["enabled"] = req["github_files_enabled"]
-    if "repo_path" in req: gh["local_path"] = req["repo_path"]
+    if req.github_repo is not None: gh["repo"] = req.github_repo
+    if req.github_pat is not None: gh["pat"] = req.github_pat
+    if req.github_branch is not None: gh["branch"] = req.github_branch
+    if req.github_mode is not None: gh["mode"] = req.github_mode
+    if req.github_files_enabled is not None: gh["enabled"] = req.github_files_enabled
+    if req.repo_path is not None: gh["local_path"] = req.repo_path
     _save_config(current)
     return {"status": "ok"}
 
@@ -363,17 +387,18 @@ def list_hierarchy(repo: str | None = None):
         try:
             hierarchy = HierarchyIndex(repo_name, config.get("hierarchy", {}).get("max_depth", 10))
             paths.extend(hierarchy.get_all_paths())
-        except Exception:
+        except Exception as e:
+            log.warning("hierarchy for %s failed: %s", repo_name, e)
             continue
     return {"paths": sorted(set(paths))}
 
 
 @router.post("/web/ask")
-def web_ask(req: dict, llm=Depends(get_llm)):
+def web_ask(req: WebAskRequest, llm=Depends(get_llm)):
     website_cfg = config.get("connectors", {}).get("website", {})
-    urls = req.get("urls") or list(website_cfg.get("start_urls", []))
-    query = req.get("q", "")
-    k = req.get("k", 8)
+    urls = req.urls or list(website_cfg.get("start_urls", []))
+    query = req.q
+    k = req.k if req.k else 8
     crawler_config = {
         "start_urls": urls,
         "sitemap_urls": list(website_cfg.get("sitemap_urls", [])),
@@ -381,8 +406,8 @@ def web_ask(req: dict, llm=Depends(get_llm)):
         "same_domain_only": website_cfg.get("same_domain_only", True),
         "include_patterns": list(website_cfg.get("include_patterns", [])),
         "exclude_patterns": list(website_cfg.get("exclude_patterns", [])),
-        "max_pages": req.get("max_pages") or int(website_cfg.get("max_pages", 150)),
-        "max_depth": req.get("max_depth") or int(website_cfg.get("max_depth", 2)),
+        "max_pages": req.max_pages or int(website_cfg.get("max_pages", 150)),
+        "max_depth": req.max_depth or int(website_cfg.get("max_depth", 2)),
         "request_timeout_seconds": int(website_cfg.get("request_timeout_seconds", 15)),
         "delay_seconds": float(website_cfg.get("delay_seconds", 0.15)),
         "min_text_chars": int(website_cfg.get("min_text_chars", 250)),
@@ -448,12 +473,41 @@ def get_kg():
                 try:
                     from core.knowledge_graph import KnowledgeGraphIndex
                     _kg_index = KnowledgeGraphIndex()
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.warning("KG init failed: %s", e)
     return _kg_index
 
 
 _kg_index = None
+
+# ─── File viewer template (used by /file endpoint) ────────────────
+
+_FILE_VIEWER_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title}</title>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #0f172a; color: #e2e8f0; }}
+  .bar {{ background: #1e293b; padding: 12px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }}
+  .bar a {{ color: #94a3b8; text-decoration: none; font-size: 14px; }}
+  .bar a:hover {{ color: #e2e8f0; }}
+  .bar .path {{ color: #e2e8f0; font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+  pre {{ padding: 16px 0; overflow-x: auto; font-size: 13px; line-height: 1.7; }}
+  code {{ display: block; }}
+  .ln {{ display: inline-block; width: 4em; text-align: right; padding-right: 1em; color: #475569; user-select: none; }}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <a href="/">&larr; Back</a>
+    <span class="path">{path}</span>
+  </div>
+  <pre><code>{numbered}</code></pre>
+</body>
+</html>"""
 
 # ─── Research endpoints ──────────────────────────────────────────────
 
@@ -647,12 +701,12 @@ def research_delete(req: ResearchDeleteRequest, store=Depends(get_research_store
     for pid in req.paper_ids:
         try:
             store.table.delete(f"paper_id = '{pid}'")
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("delete paper %s from store failed: %s", pid, e)
         try:
             catalog.unmark(pid)
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("unmark paper %s failed: %s", pid, e)
         deleted += 1
     return {"deleted": deleted}
 

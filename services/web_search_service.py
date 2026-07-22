@@ -8,6 +8,9 @@ from urllib.parse import quote
 import httpx
 
 from core.config import load_config
+from core.logging import get_logger
+
+log = get_logger("web_search_service")
 
 
 class WebSearchService:
@@ -33,7 +36,8 @@ class WebSearchService:
             papers = self._parse_arxiv_atom(resp.text)
             self._cache[cache_key] = papers
             return papers
-        except Exception:
+        except Exception as e:
+            log.warning("arxiv search failed: %s", e)
             return []
 
     def search_semantic_scholar(self, query: str, limit: int = 10) -> list[dict]:
@@ -65,7 +69,8 @@ class WebSearchService:
                 })
             self._cache[cache_key] = papers
             return papers
-        except Exception:
+        except Exception as e:
+            log.warning("semantic scholar search failed: %s", e)
             return []
 
     def _parse_arxiv_atom(self, xml_text: str) -> list[dict]:
@@ -111,8 +116,8 @@ class WebSearchService:
                     "has_pdf": True,
                     "pdf_url": f"https://arxiv.org/pdf/{paper_id}",
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("arxiv atom parse failed: %s", e)
         return papers
 
     def discover(self, query: str, sources: list[str] | None = None, limit: int = 10) -> list[dict]:

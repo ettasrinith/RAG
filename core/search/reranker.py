@@ -6,6 +6,10 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
+from core.logging import get_logger
+
+log = get_logger("reranker")
+
 _reranker_instance = None
 _reranker_lock = threading.Lock()
 
@@ -31,7 +35,8 @@ def _cached_rerank_score(query: str, passage: str) -> float:
         return 0.0
     try:
         return float(reranker.predict([(query, passage)])[0])
-    except Exception:
+    except Exception as e:
+        log.warning("reranker score failed: %s", e)
         return 0.0
 
 

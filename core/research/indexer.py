@@ -13,6 +13,9 @@ from core.embedder import embed
 from core.vector_store import VectorStore
 from core.indexer import _doc_to_rows
 from connectors.base import Document
+from core.logging import get_logger
+
+log = get_logger("research_indexer")
 from core.research.models import PaperCard
 from core.research.catalog import PaperCatalog
 
@@ -37,7 +40,8 @@ def _load_connector_for_source(source: str) -> object | None:
         module = importlib.import_module(module_path)
         cls = getattr(module, class_name)
         return cls({"enabled": True, "max_results": 1, "delay_seconds": 0})
-    except Exception:
+    except Exception as e:
+        log.warning("connector %s not available: %s", key, e)
         return None
 
 

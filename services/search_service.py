@@ -13,6 +13,9 @@ from core.search.fusion import rrf_fuse
 from core.search.highlight import extract_highlights
 from core.search.reranker import rerank
 from core.vector_store import VectorStore
+from core.logging import get_logger
+
+log = get_logger("search_service")
 
 
 class SearchService:
@@ -55,8 +58,8 @@ class SearchService:
                 conditions = parser.parse()
                 for cond in conditions:
                     fused = [r for r in fused if self._matches_filter(r, cond)]
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("filter parsing failed: %s", e)
 
         do_rerank = self.config.get("search", {}).get("rerank", False)
         if do_rerank and query:

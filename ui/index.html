@@ -1,238 +1,595 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Knowledge Hub — Search your knowledge</title>
-<meta name="description" content="A scholarly search & research hub over your indexed documents, code and papers." />
+<title>Knowledge Hub — RAG Platform</title>
+<meta name="description" content="Production-grade RAG platform: search, chat, index, and discover research papers." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Public+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
 
-<!-- ═══ Topbar ═══════════════════════════════════════ -->
-<nav class="topbar" id="nav">
-  <a class="brand" href="#" onclick="return false">
-    <span class="brand-mark">K</span>
-    <span class="brand-name">Knowledge<em>Hub</em></span>
-  </a>
-  <div class="nav">
-    <button class="nav-item active" data-section="search"><span class="icon">🔍</span><span class="nav-lbl">Search</span></button>
-    <button class="nav-item" data-section="chat"><span class="icon">💬</span><span class="nav-lbl">Chat</span></button>
-    <button class="nav-item" data-section="index"><span class="icon">📥</span><span class="nav-lbl">Index</span></button>
-    <button class="nav-item" data-section="research"><span class="icon">🔬</span><span class="nav-lbl">Research</span></button>
-  </div>
-  <div class="topbar-right">
-    <span class="status-pill"><span class="status-dot" id="status-dot"></span><span class="status-text" id="status-text">Ready</span></span>
-    <button class="theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">🌙</button>
-  </div>
-</nav>
-
-<main class="main">
-
-<!-- ═══ SEARCH ═══════════════════════════════════════ -->
-<section class="section active" id="section-search">
-  <div class="page-head">
-    <span class="eyebrow">Semantic + keyword search</span>
-    <h1>Search your <span class="accent">knowledge</span></h1>
-    <p>One query across every indexed folder, repo and note — ranked by hybrid relevance.</p>
+<!-- ═══ SIDEBAR ═════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a class="brand" href="#">
+      <span class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6v7"/><path d="M9 9l3-3 3 3"/></svg>
+      </span>
+      <span class="brand-text">Knowledge<span>Hub</span></span>
+    </a>
   </div>
 
-  <form class="search-shell" id="search-form" autocomplete="off">
-    <div class="search-field">
-      <span class="mag">🔍</span>
-      <input type="text" id="search-query" placeholder="Search documents, code, notes…" autofocus aria-label="Search query" />
-      <span class="kbd-hint">/</span>
+  <nav class="sidebar-nav">
+    <button class="nav-item active" data-view="dashboard">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-item" data-view="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <span>Search</span>
+      <span class="nav-badge" id="search-badge">/</span>
+    </button>
+    <button class="nav-item" data-view="chat">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>Chat</span>
+    </button>
+    <button class="nav-item" data-view="index">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span>Index</span>
+    </button>
+    <button class="nav-item" data-view="research">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span>Research</span>
+    </button>
+    <button class="nav-item" data-view="graph">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="5" cy="19" r="2"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="16.5" y1="5.5" x2="14" y2="8"/><line x1="7.5" y1="5.5" x2="10" y2="8"/><line x1="16.5" y1="18.5" x2="14" y2="16"/><line x1="7.5" y1="18.5" x2="10" y2="16"/></svg>
+      <span>Graph</span>
+    </button>
+    <button class="nav-item" data-view="settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="status-indicator" id="sidebar-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-label" id="status-text">Ready</span>
     </div>
-    <div class="search-controls">
-      <label class="select"><select id="search-source" aria-label="Filter by source"><option value="">All sources</option></select></label>
-      <label class="select"><select id="search-repo" aria-label="Filter by repository"><option value="">All repos</option></select></label>
-      <label class="toggle"><input type="checkbox" id="search-hybrid" checked /><span class="track"></span><span class="lbl">Hybrid</span></label>
-      <button type="submit" class="btn btn-pri" id="search-btn">Search</button>
-    </div>
-  </form>
-
-  <div class="filter-strip" id="filter-strip"></div>
-  <div class="facets" id="facets"></div>
-  <div id="search-results">
-    <div class="empty-state">
-      <span class="eicon">🔍</span>
-      <strong>Start with a query</strong>
-      <p>Your indexed knowledge is one search away. Press <b>/</b> to focus.</p>
-    </div>
+    <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+      <svg class="sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
   </div>
-</section>
+</aside>
 
-<!-- ═══ CHAT ═════════════════════════════════════════ -->
-<section class="section" id="section-chat">
-  <div class="page-head">
-    <span class="eyebrow">Retrieval-augmented answers</span>
-    <h1>Ask your <span class="accent">library</span></h1>
-    <p>Answers grounded in your indexed sources, streamed with citations.</p>
-  </div>
+<!-- ═══ OVERLAY (mobile) ════════════════════════════ -->
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-  <div class="chat-wrap">
-    <div class="chat-msgs" id="chat-messages">
-      <div class="empty-state">
-        <span class="eicon">💬</span>
-        <strong>Ask anything</strong>
-        <p>The assistant retrieves from your collections and cites what it used.</p>
+<!-- ═══ MAIN CONTENT ═══════════════════════════════ -->
+<main class="main-content">
+
+  <!-- ── Dashboard ────────────────────────────────── -->
+  <section class="view active" id="view-dashboard">
+    <div class="view-header">
+      <div>
+        <span class="eyebrow">Overview</span>
+        <h1>Dashboard</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost btn-sm" id="dashboard-refresh" title="Refresh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Refresh
+        </button>
       </div>
     </div>
-    <div class="chat-input-wrap">
-      <label class="select"><select id="chat-scope" aria-label="Chat scope"><option value="main">My knowledge</option><option value="research">Research papers</option></select></label>
-      <input type="text" id="chat-input" placeholder="Ask a question…" aria-label="Chat message" />
-      <button class="btn btn-pri" id="chat-btn">Send</button>
-    </div>
-  </div>
-</section>
 
-<!-- ═══ INDEX ════════════════════════════════════════ -->
-<section class="section" id="section-index">
-  <div class="page-head">
-    <span class="eyebrow">Build your index</span>
-    <h1>Index your <span class="accent">sources</span></h1>
-    <p>Pick a local folder, a GitHub repo, or upload a ZIP — then index it into the knowledge base.</p>
-  </div>
-
-  <div class="source-grid">
-    <div class="source-card" data-source="folder" tabindex="0" role="button">
-      <span class="icon">📂</span><div class="label">Local Folder</div><div class="desc">Index a directory from your machine</div>
-    </div>
-    <div class="source-card" data-source="github" tabindex="0" role="button">
-      <span class="icon">🐙</span><div class="label">GitHub Repo</div><div class="desc">Clone &amp; index a repository</div>
-    </div>
-    <div class="source-card" data-source="zip" tabindex="0" role="button">
-      <span class="icon">📦</span><div class="label">Upload ZIP</div><div class="desc">Documents, PDFs &amp; code archives</div>
-    </div>
-  </div>
-
-  <!-- Folder -->
-  <div class="cfg-panel" id="panel-folder">
-    <div class="fld">
-      <label for="folder-path">Folder path to index</label>
-      <div class="inline-row">
-        <input type="text" id="folder-path" placeholder="/home/you/projects/my-docs" />
-        <button type="button" class="btn btn-sec" id="folder-browse">Browse</button>
+    <div class="stats-grid" id="dash-stats">
+      <div class="stat-card glass">
+        <div class="stat-icon" style="--stat-color: var(--primary)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value" id="stat-docs">—</span>
+          <span class="stat-label">Documents Indexed</span>
+        </div>
       </div>
-      <div class="folder-dd" id="folder-list"></div>
+      <div class="stat-card glass">
+        <div class="stat-icon" style="--stat-color: var(--accent)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value" id="stat-repos">—</span>
+          <span class="stat-label">Repositories</span>
+        </div>
+      </div>
+      <div class="stat-card glass">
+        <div class="stat-icon" style="--stat-color: var(--amber)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value" id="stat-papers">—</span>
+          <span class="stat-label">Research Papers</span>
+        </div>
+      </div>
+      <div class="stat-card glass">
+        <div class="stat-icon" style="--stat-color: var(--purple)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value" id="stat-chats">—</span>
+          <span class="stat-label">Model</span>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <!-- GitHub -->
-  <div class="cfg-panel" id="panel-github">
-    <div class="fld">
-      <label for="github-repo">Repository (owner/name)</label>
-      <input type="text" id="github-repo" placeholder="ettasrinith/RAG" />
+    <div class="dash-grid">
+      <div class="dash-card glass">
+        <div class="dash-card-header">
+          <h3>Repositories by document count</h3>
+        </div>
+        <div class="dash-card-body" id="dash-repo-chart">
+          <div class="empty-sm">Loading…</div>
+        </div>
+      </div>
+      <div class="dash-card glass">
+        <div class="dash-card-header">
+          <h3>Recent activity</h3>
+        </div>
+        <div class="dash-card-body" id="dash-activity">
+          <div class="empty-sm">No recent activity</div>
+        </div>
+      </div>
     </div>
-    <div class="fld">
-      <label for="github-pat">Personal access token <span style="font-weight:400;color:var(--ink-muted)">(optional for public repos)</span></label>
-      <input type="password" id="github-pat" placeholder="ghp_…" />
+
+    <div class="dash-card glass quick-actions-card">
+      <div class="dash-card-header"><h3>Quick Actions</h3></div>
+      <div class="quick-actions">
+        <button class="qa-btn" data-view="search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <span>Search documents</span>
+        </button>
+        <button class="qa-btn" data-view="chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Ask a question</span>
+        </button>
+        <button class="qa-btn" data-view="index">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>Index new data</span>
+        </button>
+        <button class="qa-btn" data-view="research">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <span>Discover papers</span>
+        </button>
+      </div>
     </div>
-    <div class="fld" style="margin-bottom:0">
-      <label for="github-branch">Branch</label>
-      <input type="text" id="github-branch" placeholder="main" />
+  </section>
+
+  <!-- ── Search ────────────────────────────────────── -->
+  <section class="view" id="view-search">
+    <div class="view-header search-view-header">
+      <div>
+        <span class="eyebrow">Semantic + keyword search</span>
+        <h1>Search <span class="gradient-text">Knowledge</span></h1>
+      </div>
     </div>
-  </div>
 
-  <!-- ZIP -->
-  <div class="cfg-panel" id="panel-zip">
-    <div class="upload-zone" id="upload-zone">
-      <span class="icon">📤</span>
-      <p><strong>Drag &amp; drop a ZIP here</strong></p>
-      <p class="sub">or click to browse — up to 100 MB</p>
-      <input type="file" id="zip-file" accept=".zip" hidden />
+    <div class="search-hero">
+      <form class="search-box" id="search-form" autocomplete="off">
+        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="search-input" placeholder="Search documents, code, papers…" autofocus />
+        <div class="search-shortcuts">
+          <kbd>⌘K</kbd>
+        </div>
+      </form>
+
+      <div class="search-filters" id="search-filters">
+        <div class="filter-group">
+          <select id="filter-source" class="filter-select">
+            <option value="">All sources</option>
+          </select>
+          <select id="filter-repo" class="filter-select">
+            <option value="">All repositories</option>
+          </select>
+          <label class="toggle-switch">
+            <input type="checkbox" id="filter-hybrid" checked />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-label">Hybrid search</span>
+          </label>
+        </div>
+        <div class="filter-chips" id="filter-chips"></div>
+      </div>
     </div>
-    <div id="file-list" style="margin-top:12px"></div>
-  </div>
 
-  <div class="fld mt-20">
-    <label class="toggle"><input type="checkbox" id="force-full" /><span class="track"></span><span class="lbl">Force full re-index (ignore incremental cache)</span></label>
-  </div>
-
-  <div style="display:flex;gap:10px;margin-top:6px">
-    <button type="button" class="btn btn-pri" id="start-btn">▶ Start Indexing</button>
-    <button type="button" class="btn btn-danger" id="stop-btn" disabled>■ Stop</button>
-  </div>
-
-  <div class="progress-card hide" id="progress-card">
-    <div class="progress-head">
-      <span class="t"><span class="spin" style="width:15px;height:15px"></span> Indexing</span>
-      <span class="pct" id="progress-percent">0%</span>
+    <div class="search-results" id="search-results">
+      <div class="empty-state" id="search-empty">
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <h3>Ask anything</h3>
+        <p>Search across all your indexed documents, code, and research papers.</p>
+        <div class="empty-hints">
+          <span>Press <kbd>/</kbd> to focus search</span>
+          <span>Use filters to narrow results</span>
+        </div>
+      </div>
+      <div class="results-list" id="results-list"></div>
     </div>
-    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
-    <div class="progress-label" id="progress-label">Starting…</div>
-    <div class="progress-log" id="progress-log"></div>
-  </div>
-</section>
+  </section>
 
-<!-- ═══ RESEARCH ═════════════════════════════════════ -->
-<section class="section" id="section-research">
-  <div class="page-head">
-    <span class="eyebrow">Academic discovery</span>
-    <h1>Discover <span class="accent">research papers</span></h1>
-    <p>One keyword across arXiv, Semantic Scholar &amp; OpenAlex — then index the papers you select.</p>
-  </div>
-
-  <form class="search-shell" id="discover-form" autocomplete="off">
-    <div class="search-field">
-      <span class="mag">🔬</span>
-      <input type="text" id="discover-query" placeholder="e.g. retrieval augmented generation, vector databases…" aria-label="Research query" />
+  <!-- ── Chat ──────────────────────────────────────── -->
+  <section class="view" id="view-chat">
+    <div class="view-header">
+      <div>
+        <span class="eyebrow">Retrieval-Augmented Generation</span>
+        <h1>Chat with your <span class="gradient-text">Library</span></h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost btn-sm" id="chat-new-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New chat
+        </button>
+      </div>
     </div>
-    <div class="search-controls">
-      <button type="submit" class="btn btn-pri" id="discover-btn">Discover</button>
+
+    <div class="chat-layout">
+      <div class="chat-main">
+        <div class="chat-messages" id="chat-messages">
+          <div class="welcome-msg" id="chat-welcome">
+            <div class="welcome-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h3>Ask your knowledge base</h3>
+            <p>I answer questions based on your indexed documents and research papers.</p>
+            <div class="suggestions" id="chat-suggestions">
+              <button class="suggestion-chip" data-q="What documents are indexed?">What documents are indexed?</button>
+              <button class="suggestion-chip" data-q="Summarize the latest research">Summarize the latest research</button>
+              <button class="suggestion-chip" data-q="What topics do my documents cover?">What topics do my documents cover?</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-scope-selector">
+            <button class="scope-btn active" data-scope="main">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              Knowledge
+            </button>
+            <button class="scope-btn" data-scope="research">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              Research
+            </button>
+          </div>
+          <div class="chat-input-wrap">
+            <input type="text" id="chat-input" placeholder="Ask a question about your knowledge…" />
+            <button class="btn btn-primary" id="chat-send-btn" disabled>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sources panel (right side) -->
+      <aside class="chat-sources" id="chat-sources">
+        <div class="sources-header">
+          <h4>Sources</h4>
+          <span class="sources-count" id="sources-count">0</span>
+        </div>
+        <div class="sources-list" id="sources-list">
+          <div class="empty-sm">No sources yet. Ask a question to see sources.</div>
+        </div>
+      </aside>
     </div>
-  </form>
+  </section>
 
-  <div class="res-controls">
-    <span class="lbl">Sources</span>
-    <label class="badge src-tgl"><input type="checkbox" id="src-arxiv" checked /> arXiv</label>
-    <label class="badge src-tgl"><input type="checkbox" id="src-s2" checked /> Semantic Scholar</label>
-    <label class="badge src-tgl"><input type="checkbox" id="src-oa" checked /> OpenAlex</label>
-    <span class="lbl">Limit</span>
-    <input type="number" id="discover-limit" value="10" min="1" max="100" aria-label="Results per source" />
-    <span class="lbl">Sort</span>
-    <label class="select"><select id="discover-sort" aria-label="Sort papers">
-      <option value="relevance">Relevance</option>
-      <option value="year_desc">Newest</option>
-      <option value="year_asc">Oldest</option>
-      <option value="citations_desc">Most cited</option>
-    </select></label>
-  </div>
-
-  <div id="discover-status" class="results-meta" style="display:none"></div>
-  <div id="discover-results"></div>
-
-  <div class="select-bar hide" id="select-bar">
-    <span class="count" id="selected-count">0 selected</span>
-    <span class="spacer"></span>
-    <label class="select"><select id="collection-picker" aria-label="Target collection"><option value="default">default</option></select></label>
-    <button type="button" class="btn btn-pri" id="index-selected-btn">Index selected</button>
-  </div>
-
-  <div class="progress-card hide" id="research-progress-card">
-    <div class="progress-head">
-      <span class="t"><span class="spin" style="width:15px;height:15px"></span> Indexing papers</span>
-      <span class="pct" id="research-progress-percent">0%</span>
+  <!-- ── Index ─────────────────────────────────────── -->
+  <section class="view" id="view-index">
+    <div class="view-header">
+      <div>
+        <span class="eyebrow">Data Ingestion</span>
+        <h1>Index your <span class="gradient-text">Sources</span></h1>
+        <p class="view-desc">Import documents from folders, GitHub, or ZIP archives.</p>
+      </div>
     </div>
-    <div class="progress-track"><div class="progress-fill" id="research-progress-fill"></div></div>
-    <div class="progress-label" id="research-progress-label">Starting…</div>
-    <div class="progress-log" id="research-progress-log"></div>
-  </div>
 
-  <div class="section-divider"></div>
-  <div class="section-title"><span class="emoji">📚</span> Your research library</div>
-  <div class="res-controls" style="margin:0 0 12px">
-    <label class="select"><select id="library-collection" aria-label="Library collection"><option value="">All collections</option></select></label>
-  </div>
-  <div id="library-results"></div>
-</section>
+    <div class="source-grid">
+      <div class="source-card glass" data-source="folder" tabindex="0">
+        <div class="source-card-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="source-card-body">
+          <h4>Local Folder</h4>
+          <p>Index documents from your machine</p>
+        </div>
+        <div class="source-check">✓</div>
+      </div>
+      <div class="source-card glass" data-source="github" tabindex="0">
+        <div class="source-card-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        </div>
+        <div class="source-card-body">
+          <h4>GitHub Repo</h4>
+          <p>Clone and index a repository</p>
+        </div>
+        <div class="source-check">✓</div>
+      </div>
+      <div class="source-card glass" data-source="zip" tabindex="0">
+        <div class="source-card-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div class="source-card-body">
+          <h4>Upload ZIP</h4>
+          <p>Documents, PDFs & code archives</p>
+        </div>
+        <div class="source-check">✓</div>
+      </div>
+    </div>
+
+    <!-- Config panels -->
+    <div class="config-panel" id="panel-folder">
+      <div class="config-field">
+        <label>Folder path</label>
+        <div class="input-row">
+          <input type="text" id="folder-path" placeholder="/path/to/your/documents" />
+          <button class="btn btn-secondary" id="folder-browse">Browse</button>
+        </div>
+        <div class="folder-dropdown" id="folder-dropdown"></div>
+      </div>
+    </div>
+
+    <div class="config-panel" id="panel-github">
+      <div class="config-field">
+        <label>Repository <span class="label-hint">owner/name</span></label>
+        <input type="text" id="github-repo" placeholder="e.g. user/repo" />
+      </div>
+      <div class="config-field">
+        <label>Personal Access Token <span class="label-hint">optional, for private repos</span></label>
+        <input type="password" id="github-pat" placeholder="ghp_…" />
+      </div>
+      <div class="config-field">
+        <label>Branch</label>
+        <input type="text" id="github-branch" placeholder="main" />
+      </div>
+    </div>
+
+    <div class="config-panel" id="panel-zip">
+      <div class="upload-zone" id="upload-zone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <h4>Drop a ZIP file here</h4>
+        <p>or click to browse — up to 200 MB</p>
+        <input type="file" id="zip-file" accept=".zip" hidden />
+      </div>
+      <div id="upload-status"></div>
+    </div>
+
+    <div class="index-actions">
+      <label class="toggle-switch">
+        <input type="checkbox" id="force-full" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Force full re-index</span>
+      </label>
+      <div class="index-buttons">
+        <button class="btn btn-primary" id="index-start-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Start Indexing
+        </button>
+        <button class="btn btn-danger" id="index-stop-btn" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          Stop
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-panel glass hide" id="progress-panel">
+      <div class="progress-header">
+        <div class="progress-title">
+          <span class="spinner-sm"></span>
+          <span id="progress-title">Indexing…</span>
+        </div>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-label" id="progress-label">Starting…</div>
+      <div class="progress-log" id="progress-log"></div>
+    </div>
+  </section>
+
+  <!-- ── Research ──────────────────────────────────── -->
+  <section class="view" id="view-research">
+    <div class="view-header">
+      <div>
+        <span class="eyebrow">Academic Discovery</span>
+        <h1>Research <span class="gradient-text">Papers</span></h1>
+        <p class="view-desc">Discover papers from arXiv, Semantic Scholar & OpenAlex.</p>
+      </div>
+    </div>
+
+    <div class="research-tabs">
+      <button class="research-tab active" data-rtab="discover">Discover</button>
+      <button class="research-tab" data-rtab="library">Library</button>
+    </div>
+
+    <!-- Discover tab -->
+    <div class="rtab-content active" id="rtab-discover">
+      <form class="discover-form" id="discover-form">
+        <div class="discover-input-row">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <input type="text" id="discover-query" placeholder="e.g. retrieval augmented generation, vector databases…" />
+          <button class="btn btn-primary" id="discover-btn">Discover</button>
+        </div>
+        <div class="discover-controls">
+          <div class="source-toggles">
+            <span class="dc-label">Sources</span>
+            <label class="src-tgl active"><input type="checkbox" id="src-arxiv" checked /> arXiv</label>
+            <label class="src-tgl active"><input type="checkbox" id="src-s2" checked /> Semantic Scholar</label>
+            <label class="src-tgl active"><input type="checkbox" id="src-oa" checked /> OpenAlex</label>
+          </div>
+          <div class="dc-right">
+            <label class="dc-field">
+              <span>Limit</span>
+              <input type="number" id="discover-limit" value="10" min="1" max="50" />
+            </label>
+            <label class="dc-field">
+              <span>Sort</span>
+              <select id="discover-sort">
+                <option value="relevance">Relevance</option>
+                <option value="year_desc">Newest</option>
+                <option value="citations_desc">Most cited</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </form>
+
+      <div class="discover-status" id="discover-status"></div>
+      <div class="paper-grid" id="discover-results">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          </div>
+          <h3>Search for papers</h3>
+          <p>Enter a query to discover academic papers across multiple sources.</p>
+        </div>
+      </div>
+
+      <!-- Selection bar -->
+      <div class="selection-bar hide" id="selection-bar">
+        <span class="selection-count" id="selection-count">0 selected</span>
+        <div class="selection-actions">
+          <select id="collection-picker" class="filter-select">
+            <option value="default">default</option>
+          </select>
+          <button class="btn btn-primary" id="index-selected-btn">Index Selected</button>
+        </div>
+      </div>
+
+      <!-- Research progress -->
+      <div class="progress-panel glass hide" id="research-progress-panel">
+        <div class="progress-header">
+          <div class="progress-title">
+            <span class="spinner-sm"></span>
+            <span id="research-prog-title">Indexing papers…</span>
+          </div>
+          <span class="progress-pct" id="research-prog-pct">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="research-prog-fill"></div>
+        </div>
+        <div class="progress-label" id="research-prog-label">Starting…</div>
+        <div class="progress-log" id="research-prog-log"></div>
+      </div>
+    </div>
+
+    <!-- Library tab -->
+    <div class="rtab-content" id="rtab-library">
+      <div class="library-header">
+        <div class="library-controls">
+          <select id="library-filter" class="filter-select">
+            <option value="">All collections</option>
+          </select>
+          <span class="library-count" id="library-count"></span>
+        </div>
+      </div>
+      <div class="paper-grid" id="library-results">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <h3>Your library is empty</h3>
+          <p>Discover and index papers to build your research library.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Graph ─────────────────────────────────────── -->
+  <section class="view" id="view-graph">
+    <div class="view-header">
+      <div>
+        <span class="eyebrow">Knowledge Graph</span>
+        <h1>Entity <span class="gradient-text">Relations</span></h1>
+        <p class="view-desc">Visualize entities and relationships across your repos.</p>
+      </div>
+    </div>
+    <div class="graph-container glass">
+      <div class="graph-empty" id="graph-empty">
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="5" cy="19" r="2"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="16.5" y1="5.5" x2="14" y2="8"/><line x1="7.5" y1="5.5" x2="10" y2="8"/><line x1="16.5" y1="18.5" x2="14" y2="16"/><line x1="7.5" y1="18.5" x2="10" y2="16"/></svg>
+        </div>
+        <h3>Knowledge graph not enabled</h3>
+        <p>Enable the knowledge graph in config.yaml to visualize entity relationships.</p>
+      </div>
+      <div class="graph-canvas" id="graph-canvas"></div>
+    </div>
+  </section>
+
+  <!-- ── Settings ──────────────────────────────────── -->
+  <section class="view" id="view-settings">
+    <div class="view-header">
+      <div>
+        <span class="eyebrow">Configuration</span>
+        <h1>Settings</h1>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+      <div class="settings-card glass">
+        <h3>API Key</h3>
+        <p>Set an API key for authenticated access to the Knowledge Hub.</p>
+        <div class="input-row">
+          <input type="password" id="settings-api-key" placeholder="Enter API key…" />
+          <button class="btn btn-secondary" id="settings-save-key">Save</button>
+        </div>
+      </div>
+
+      <div class="settings-card glass">
+        <h3>Appearance</h3>
+        <p>Choose your preferred theme.</p>
+        <div class="theme-options">
+          <label class="theme-option active" data-theme-val="dark">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            Dark
+          </label>
+          <label class="theme-option" data-theme-val="light">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            Light
+          </label>
+          <label class="theme-option" data-theme-val="system">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            System
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-card glass">
+        <h3>Data Management</h3>
+        <p>Clear all indexed data from the vector store.</p>
+        <button class="btn btn-danger" id="settings-clear-btn">Clear All Data</button>
+      </div>
+
+      <div class="settings-card glass">
+        <h3>About</h3>
+        <p>Knowledge Hub v2.0 — Production-grade RAG platform.</p>
+        <div class="about-info">
+          <div class="about-row"><span>Embedding Model</span><span id="about-embedding">—</span></div>
+          <div class="about-row"><span>LLM Model</span><span id="about-llm">—</span></div>
+          <div class="about-row"><span>Status</span><span id="about-status">—</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
 </main>
 
-<div id="toasts" aria-live="polite"></div>
+<!-- ═══ TOASTS ═══════════════════════════════════════ -->
+<div id="toast-container"></div>
 
 <script src="/static/app.js" defer></script>
 </body>

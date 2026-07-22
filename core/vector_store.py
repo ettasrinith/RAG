@@ -9,6 +9,9 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 from core.config import resolve_data_path
+from core.logging import get_logger
+
+log = get_logger("vector_store")
 
 
 _SCHEMA_CACHE: dict[int, pa.Schema] = {}
@@ -53,7 +56,20 @@ def _research_schema(dim: int) -> pa.Schema:
 
 
 def _esc(val: str) -> str:
-    return val.replace("'", "''")
+    """Escape a string value for safe use in LanceDB WHERE clauses.
+
+    LanceDB uses a SQL-like WHERE clause; removing dangerous characters is
+    far safer than trying to escape them because LanceDB's parser doesn't
+    support standard SQL backslash escapes.
+    """
+    val = val.replace("\\", "\\\\")   # backslash
+    val = val.replace("'", "''")      # single quote
+    val = val.replace("\x00", "")     # null bytes
+    val = val.replace(";", "")        # statement separator — just remove
+    val = val.replace("--", "")       # SQL comment
+    val = val.replace("/*", "")       # block comment start
+    val = val.replace("*/", "")       # block comment end
+    return val
 
 
 class VectorStore:
@@ -120,8 +136,8 @@ class VectorStore:
             if repo_filter:
                 q = q.where(f"repo = '{_esc(repo_filter)}'")
             return q.to_list()
-        except Exception:
-            # FTS index/column issues shouldn't break search; fall back to empty.
+        except Exception as e:
+            log.warning("fts_search failed: %s", e)
             return []
 
     def list_repos(self) -> list[str]:
@@ -130,7 +146,8 @@ class VectorStore:
             repo_col = tbl.column("repo").combine_chunks()
             repo_col = pc.drop_null(repo_col)
             return sorted(set(repo_col.to_pylist()))
-        except Exception:
+        except Exception as e:
+            log.warning("list_repos failed: %s", e)
             return []
 
     def list_hierarchy_paths(self, repo: str | None = None) -> list[str]:
@@ -141,7 +158,8 @@ class VectorStore:
             if repo:
                 paths = [p for p in paths if isinstance(p, str) and p.startswith(repo)]
             return paths
-        except Exception:
+        except Exception as e:
+            log.warning("list_hierarchy_paths failed: %s", e)
             return []
 
     def count(self) -> int:
@@ -152,14 +170,27 @@ class VectorStore:
             tbl = self.table.to_arrow()
             repos = [r for r in tbl.column("repo").combine_chunks().to_pylist() if r]
             return dict(Counter(repos))
-        except Exception:
+        except Exception as e:
+            log.warning("count_by_repo failed: %s", e)
             return {}
 
     def clear(self) -> None:
         self.table.delete("true")
 
     def ensure_fts(self) -> None:
+        """Ensure FTS index exists.
+
+        Tries replace=True first (includes new data). On Windows this can fail
+        with PermissionError because the old index directory is locked -- in
+        that case falls back to replace=False (creates if absent, no-op
+        otherwise).
+        """
         try:
-            self.table.create_fts_index("text", replace=False)
-        except Exception:
-            pass
+            self.table.create_fts_index("text", replace=True)
+        except PermissionError:
+            try:
+                self.table.create_fts_index("text", replace=False)
+            except Exception as e2:
+                log.warning("ensure_fts fallback failed: %s", e2)
+        except Exception as e:
+            log.warning("ensure_fts failed: %s", e)

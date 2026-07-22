@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from core.config import resolve_data_path
+from core.logging import get_logger
+
+log = get_logger("hierarchy")
 
 
 @dataclass
@@ -40,8 +43,8 @@ class HierarchyIndex:
                 for item in data:
                     node = HierarchyNode(**item)
                     self.nodes[node.id] = node
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("failed to load hierarchy: %s", e)
 
     def save(self) -> None:
         data = [

@@ -10,6 +10,9 @@ from __future__ import annotations
 import re
 
 from core.llm import LLMClient
+from core.logging import get_logger
+
+log = get_logger("contextual_rag")
 
 
 DEFAULT_SUMMARY_PROMPT = (
@@ -42,7 +45,8 @@ class ContextualRAG:
             )
             try:
                 response = self.llm.complete(prompt_text, system_prompt=self.prompt)
-            except Exception:
+            except Exception as e:
+                log.warning("LLM completion failed: %s", e)
                 response = ""
             results.extend(self._parse_numbered(response, len(batch)))
         return results
@@ -50,6 +54,7 @@ class ContextualRAG:
     @staticmethod
     def _parse_numbered(text: str, n: int) -> list[str]:
         out: list[str] = ["" for _ in range(n)]
+        # Try structured numbered format first (e.g. "1. summary", "2) summary")
         for line in text.splitlines():
             m = re.match(r"\s*(\d+)[.)]\s*(.*)", line)
             if not m:
@@ -58,8 +63,18 @@ class ContextualRAG:
             val = m.group(2).strip()
             if 0 <= idx < n and val:
                 out[idx] = val[:200]
+        # Fallback: if numbered parsing yielded nothing, try heuristics
         if not any(out) and text.strip():
-            out[0] = text.strip()[:200]
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            # One line per chunk (bullet list or plain list)
+            if len(lines) >= n:
+                for i in range(min(n, len(lines))):
+                    candidate = re.sub(r"^[-*\d.)\s]+", "", lines[i]).strip()
+                    if candidate:
+                        out[i] = candidate[:200]
+            # Single block of text — fall back to placing it as first summary
+            if not any(out):
+                out[0] = text.strip()[:200]
         return out
 
     def enrich_chunks(self, chunks: list[dict]) -> list[dict]:

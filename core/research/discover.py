@@ -9,6 +9,9 @@ from core.config import load_config
 from core.research.models import PaperCard, DiscoverRequest, DiscoverResponse
 from core.research.merge import merge_paper_cards
 from core.research.catalog import PaperCatalog
+from core.logging import get_logger
+
+log = get_logger("discover")
 
 # ---------------------------------------------------------------------------
 # In-memory TTL cache
@@ -198,8 +201,8 @@ def discover_papers(req: DiscoverRequest, catalog: PaperCatalog) -> DiscoverResp
         for fut in concurrent.futures.as_completed(futures):
             try:
                 all_cards.extend(fut.result())
-            except Exception:
-                pass  # Skip failed sources gracefully
+            except Exception as e:
+                log.warning("source fetch %s failed: %s", futures[f], e)
 
     merged = merge_paper_cards(all_cards)
     _set_cached(key, merged)

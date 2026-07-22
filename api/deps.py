@@ -25,6 +25,27 @@ _research_store: VectorStore | None = None
 _llm: LLMClient | None = None
 
 
+def reset(store: bool = True, research_store: bool = True, llm: bool = True) -> None:
+    """Reset global singletons — primarily for test isolation between sessions."""
+    global _store, _research_store, _llm
+    if store:
+        _store = None
+    if research_store:
+        _research_store = None
+    if llm:
+        _llm = None
+
+
+def reload_config() -> None:
+    """Reload config from disk and reset singletons that depend on it."""
+    global config, _store_path
+    config = load_config()
+    _store_path = config["vector_store"]["path"]
+    if not Path(_store_path).is_absolute():
+        _store_path = str(ROOT / _store_path)
+    reset()
+
+
 def get_store() -> VectorStore:
     global _store
     if _store is None:

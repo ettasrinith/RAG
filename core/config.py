@@ -42,6 +42,7 @@ def _resolve_env(value, path=()):
 
 
 def load_config(path: str | Path | None = None) -> dict:
+    _ENV_REFS.clear()
     path = Path(path) if path else ROOT / "config.yaml"
     with open(path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)

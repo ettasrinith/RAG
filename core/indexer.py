@@ -20,10 +20,13 @@ from typing import Iterator
 from core.chunker import chunk_text
 from core.config import load_config
 from core.embedder import embed
+from core.logging import get_logger
 from core.vector_store import VectorStore
 from core.sync_state import SyncState
 from core.hierarchy import HierarchyIndex
 from connectors.base import BaseConnector, Document
+
+log = get_logger("indexer")
 
 
 CONNECTOR_REGISTRY: dict[str, str] = {
@@ -64,7 +67,8 @@ def _doc_to_rows(doc: Document, chunk_size: int, overlap: int,
     if contextual_rag is not None:
         try:
             summaries = contextual_rag.summarize_batch(pieces)
-        except Exception:
+        except Exception as e:
+            log.warning("summarize_batch failed: %s", e)
             summaries = None
         if not summaries or len(summaries) != len(pieces):
             summaries = ["" for _ in pieces]
@@ -83,9 +87,18 @@ def _doc_to_rows(doc: Document, chunk_size: int, overlap: int,
         parts = doc.title.split("/")
         hierarchy_path = "/".join(parts[:-1]) if len(parts) > 1 else ""
 
+    # Extract research-specific metadata fields from doc.metadata
+    # so they flow through to the research_vector_store schema columns.
+    meta = doc.metadata or {}
+    meta_paper_id = meta.get("paper_id", "")
+    meta_year = meta.get("year")
+    meta_venue = meta.get("venue", "")
+    meta_citation_count = meta.get("citation_count", 0)
+    meta_collection = meta.get("collection", repo)
+
     rows = []
     for idx, (chunk, vec, s) in enumerate(zip(pieces, vectors, summaries)):
-        rows.append({
+        row = {
             "id": f"{doc.id}::chunk{idx}",
             "doc_id": doc.id,
             "source": doc.source,
@@ -99,7 +112,19 @@ def _doc_to_rows(doc: Document, chunk_size: int, overlap: int,
             "vector": vec,
             "created_at": doc.created_at.isoformat() if doc.created_at else "",
             "updated_at": doc.updated_at.isoformat() if doc.updated_at else "",
-        })
+        }
+        # Include research-store columns if the caller provided metadata
+        if meta_paper_id:
+            row["paper_id"] = meta_paper_id
+        if meta_year is not None:
+            row["year"] = meta_year
+        if meta_venue:
+            row["venue"] = meta_venue
+        if meta_citation_count is not None:
+            row["citation_count"] = meta_citation_count
+        if meta_collection:
+            row["collection"] = meta_collection
+        rows.append(row)
     return rows
 
 
@@ -190,16 +215,16 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
                 prompt=rag_cfg.get("summary_prompt"),
                 batch_size=rag_cfg.get("batch_size", 10),
             )
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("ContextualRAG init failed: %s", e)
 
     kg_index = None
     if kg_cfg.get("enabled", False) and repo_name:
         try:
             from core.knowledge_graph import KnowledgeGraphIndex
             kg_index = KnowledgeGraphIndex()
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("KnowledgeGraph init failed: %s", e)
 
     if stop_event and stop_event.is_set():
         return {"cancelled": True}
@@ -283,8 +308,8 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
                 if kg_index:
                     try:
                         kg_index.build_from_doc(repo_name, doc.id, doc.content[:5000])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.warning("KG build_from_doc failed: %s", e)
 
                 if sync_state and repo_name:
                     mtime = doc.updated_at.isoformat() if doc.updated_at else ""
@@ -335,8 +360,8 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
             if kg_index:
                 try:
                     kg_index.save_all()
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.warning("KG save_all failed: %s", e)
 
             if sync_state and repo_name:
                 sync_state.set_last_indexed(repo_name, key)

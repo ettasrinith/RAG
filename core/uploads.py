@@ -7,6 +7,9 @@ import zipfile
 from pathlib import Path
 
 from core.config import resolve_data_path
+from core.logging import get_logger
+
+log = get_logger("uploads")
 
 ZIP_ROOT = resolve_data_path("./data/uploads")
 ZIP_ROOT.mkdir(parents=True, exist_ok=True)
@@ -36,17 +39,19 @@ def cleanup_upload_dir(path: str | Path | None) -> None:
         return
     try:
         shutil.rmtree(Path(path), ignore_errors=True)
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("cleanup_upload_dir failed: %s", e)
 
 
 def _safe_destination(root: Path, member_name: str) -> Path:
     name = member_name.replace("\\", "/").strip("/")
     if not name:
         raise ValueError("invalid archive entry")
+    # Resolve real paths to handle symlinks in the chain
+    root_real = root.resolve()
     dest = (root / name).resolve()
-    root_resolved = root.resolve()
-    if root_resolved not in dest.parents and dest != root_resolved:
+    # Verify the destination is actually inside the root directory
+    if root_real not in dest.parents and dest != root_real:
         raise ValueError("unsafe archive entry")
     return dest
 
