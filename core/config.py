@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 
 import yaml
@@ -13,6 +14,7 @@ load_dotenv(ROOT / ".env")
 
 
 _ENV_REFS: dict = {}
+_ENV_REFS_LOCK = threading.Lock()
 
 
 def _resolve_env(value, path=()):
@@ -22,7 +24,8 @@ def _resolve_env(value, path=()):
             if k.endswith("_env") and isinstance(v, str):
                 val = os.environ.get(v, "")
                 out[k[:-4]] = val
-                _ENV_REFS[path + (k[:-4],)] = (v, val)
+                with _ENV_REFS_LOCK:
+                    _ENV_REFS[path + (k[:-4],)] = (v, val)
             else:
                 out[k] = _resolve_env(v, path + (k,))
         return out
@@ -34,15 +37,18 @@ def _resolve_env(value, path=()):
         if not val:
             # Unset env var -> treat as empty so connectors can fall back to a
             # ROOT-relative default instead of keeping the literal "${VAR}".
-            _ENV_REFS[path] = (var, "")
+            with _ENV_REFS_LOCK:
+                _ENV_REFS[path] = (var, "")
             return ""
-        _ENV_REFS[path] = (var, val)
+        with _ENV_REFS_LOCK:
+            _ENV_REFS[path] = (var, val)
         return val
     return value
 
 
 def load_config(path: str | Path | None = None) -> dict:
-    _ENV_REFS.clear()
+    with _ENV_REFS_LOCK:
+        _ENV_REFS.clear()
     path = Path(path) if path else ROOT / "config.yaml"
     with open(path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
@@ -87,8 +93,11 @@ def _deep_merge_skip_refs(raw, resolved, path=()):
             raw = {}
         for k, v in resolved.items():
             child = path + (k,)
-            if child in _ENV_REFS:
-                _var, original = _ENV_REFS[child]
+            with _ENV_REFS_LOCK:
+                in_refs = child in _ENV_REFS
+                if in_refs:
+                    _var, original = _ENV_REFS[child]
+            if in_refs:
                 if v == original:
                     # Unchanged -> keep the ${VAR} reference in the raw file.
                     continue

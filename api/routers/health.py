@@ -61,10 +61,11 @@ async def health_check():
 
     # Database
     try:
+        from sqlalchemy import text
         from core.registry.database import get_session
         session = get_session()
         t0 = time.perf_counter()
-        session.execute("SELECT 1")
+        session.execute(text("SELECT 1"))
         session.close()
         components["database"] = ComponentHealth(
             status="healthy",

@@ -372,7 +372,7 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
             errors.append(f"{key}: {str(e)}")
             _emit({"type": "connector_error", "key": key, "error": str(e)}, progress_cb)
 
-    store.ensure_fts()
+    store._ensure_fts_fresh()
 
     cancelled = stop_event and stop_event.is_set()
     elapsed = datetime.now() - started

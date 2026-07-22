@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import importlib
+import io
 import time
 from datetime import datetime
 from pathlib import Path
 from threading import Event
 from urllib.parse import quote
+
+import httpx
 
 from core.config import load_config
 from core.embedder import embed
@@ -18,6 +21,41 @@ from core.logging import get_logger
 log = get_logger("research_indexer")
 from core.research.models import PaperCard
 from core.research.catalog import PaperCatalog
+
+_PDF_USER_AGENT = "KnowledgeHubBot/1.0 (+https://localhost)"
+
+
+def _fetch_pdf_text(pdf_url: str, max_bytes: int = 25 * 1024 * 1024,
+                    timeout: float = 30.0) -> str:
+    """Download a PDF from *pdf_url* and extract its text.
+
+    Returns empty string on any failure.
+    """
+    if not pdf_url:
+        return ""
+    try:
+        resp = httpx.get(pdf_url, timeout=timeout,
+                         headers={"User-Agent": _PDF_USER_AGENT})
+        resp.raise_for_status()
+        data = resp.content
+        if len(data) > max_bytes:
+            log.warning("PDF too large (%d MB) at %s", len(data) // 1024 // 1024, pdf_url)
+            return ""
+        try:
+            from pypdf import PdfReader
+        except ImportError:
+            log.warning("pypdf not installed — cannot extract PDF text")
+            return ""
+        reader = PdfReader(io.BytesIO(data))
+        pages = []
+        for page in reader.pages:
+            text = (page.extract_text() or "").strip()
+            if text:
+                pages.append(text)
+        return "\n\n".join(pages)
+    except Exception as e:
+        log.debug("PDF fetch/extract failed for %s: %s", pdf_url, e)
+        return ""
 
 
 def _emit(event: dict, progress_cb) -> None:
@@ -41,7 +79,7 @@ def _load_connector_for_source(source: str) -> object | None:
         cls = getattr(module, class_name)
         return cls({"enabled": True, "max_results": 1, "delay_seconds": 0})
     except Exception as e:
-        log.warning("connector %s not available: %s", key, e)
+        log.warning("connector %s not available: %s", source, e)
         return None
 
 
@@ -143,6 +181,15 @@ def index_papers(
         try:
             doc = _paper_to_document(paper)
 
+            # ── Download full PDF text if available ──
+            if paper.pdf_url:
+                log.info("Fetching full PDF text for %s…", paper.paper_id or paper.title)
+                full_text = _fetch_pdf_text(paper.pdf_url)
+                if full_text:
+                    doc.content += f"\n\nFull text:\n{full_text}"
+                else:
+                    log.info("No full PDF text for %s (abstract only)", paper.paper_id or paper.title)
+
             rows = _doc_to_rows(
                 doc,
                 chunk_size=chunk_cfg["chunk_size"],
@@ -179,7 +226,7 @@ def index_papers(
             _emit({"type": "paper_error", "paper_id": paper.paper_id,
                     "error": str(e)}, progress_cb)
 
-    store.ensure_fts()
+    store._ensure_fts_fresh()
 
     elapsed = datetime.now() - started
     result = {

@@ -136,10 +136,7 @@ def search(req: SearchRequest, store=Depends(get_store), research_store=Depends(
         log.warning("research search failed: %s", e)
 
     # Apply recency bias so newer documents rank higher
-    try:
-        fused = apply_recency_bias(fused)
-    except Exception as e:
-        log.warning("recency_bias failed: %s", e)
+    fused = apply_recency_bias(fused)
 
     reranked = rerank(q, fused, top_k=k) if config.get("search", {}).get("rerank", False) else fused[:k]
 
@@ -241,8 +238,10 @@ def sync_start(req: SyncStartRequest):
 
 @router.get("/sync/status")
 def sync_status(store=Depends(get_store)):
+    with _index_lock:
+        indexing = _indexing_in_progress
     return {
-        "indexing": _indexing_in_progress,
+        "indexing": indexing,
         "stop_requested": _stop_event.is_set(),
         "repos": store.list_repos(),
         "repo_counts": store.count_by_repo(),
@@ -254,16 +253,18 @@ def sync_status(store=Depends(get_store)):
 @router.post("/sync/stop")
 def sync_stop():
     global _indexing_in_progress
-    if not _indexing_in_progress:
-        return {"error": "no indexing in progress"}
+    with _index_lock:
+        if not _indexing_in_progress:
+            return {"error": "no indexing in progress"}
     _stop_event.set()
     return {"status": "stopping"}
 
 
 @router.post("/sync/clear")
 def sync_clear(store=Depends(get_store)):
-    if _indexing_in_progress:
-        return {"error": "cannot clear while indexing"}
+    with _index_lock:
+        if _indexing_in_progress:
+            return {"error": "cannot clear while indexing"}
     store.clear()
     return {"status": "cleared"}
 

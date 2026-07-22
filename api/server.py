@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.errors import AIPError, aip_error_handler
 from api.routers import collections, search, documents, papers, jobs, chat, web, legacy
-from api.routers import health, sessions, agent, admin
+from api.routers import health, sessions, agent, admin, reindex
 from api.middleware import setup_middleware
 from core.config import load_config
 from core.logging import setup_logging, get_logger
@@ -63,6 +63,7 @@ app.include_router(health.router)
 app.include_router(sessions.router)
 app.include_router(agent.router)
 app.include_router(admin.router)
+app.include_router(reindex.router)
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 if UI_DIR.exists():

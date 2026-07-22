@@ -1,7 +1,9 @@
 """Upload helpers for ZIP ingestion."""
 from __future__ import annotations
 
+import os
 import shutil
+import stat
 import tempfile
 import zipfile
 from pathlib import Path
@@ -56,6 +58,12 @@ def _safe_destination(root: Path, member_name: str) -> Path:
     return dest
 
 
+def _is_symlink_entry(info: zipfile.ZipInfo) -> bool:
+    """Detect if a ZIP entry is a symlink (Unix external attributes)."""
+    mode = info.external_attr >> 16
+    return stat.S_ISLNK(mode)
+
+
 def extract_zip_safe(zip_path: str | Path, output_dir: str | Path,
                      allowed_extensions: set[str] | None = None,
                      max_total_bytes: int = 200 * 1024 * 1024,
@@ -73,6 +81,12 @@ def extract_zip_safe(zip_path: str | Path, output_dir: str | Path,
         for info in zf.infolist():
             if info.is_dir():
                 continue
+
+            # Block symlink entries — they can be used for path traversal
+            if _is_symlink_entry(info):
+                log.warning("blocked symlink entry in zip: %s", info.filename)
+                raise ValueError(f"symlink entries are not allowed: {info.filename}")
+
             count += 1
             if count > max_files:
                 raise ValueError("zip file contains too many entries")
@@ -87,6 +101,17 @@ def extract_zip_safe(zip_path: str | Path, output_dir: str | Path,
             dest.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(info) as src, open(dest, "wb") as dst:
                 shutil.copyfileobj(src, dst)
+
+            # Verify final destination is a regular file (not a symlink that
+            # could have been created by the OS or a prior extraction step)
+            try:
+                if not os.path.isfile(dest) or os.path.islink(dest):
+                    dest.unlink(missing_ok=True)
+                    raise ValueError(f"extracted entry is not a regular file: {info.filename}")
+            except OSError as e:
+                log.warning("post-extract verification failed for %s: %s", info.filename, e)
+                raise ValueError(f"post-extract verification failed: {info.filename}")
+
             extracted.append(str(dest))
 
     return extracted

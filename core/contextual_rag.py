@@ -54,27 +54,42 @@ class ContextualRAG:
     @staticmethod
     def _parse_numbered(text: str, n: int) -> list[str]:
         out: list[str] = ["" for _ in range(n)]
-        # Try structured numbered format first (e.g. "1. summary", "2) summary")
-        for line in text.splitlines():
-            m = re.match(r"\s*(\d+)[.)]\s*(.*)", line)
-            if not m:
-                continue
-            idx = int(m.group(1)) - 1
-            val = m.group(2).strip()
-            if 0 <= idx < n and val:
-                out[idx] = val[:200]
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        if not lines:
+            return out
+
+        # Try various numbered formats
+        for line in lines:
+            # Strip markdown bold/italic markers
+            cleaned = re.sub(r"[*_~`]+", "", line).strip()
+            # Match: "1. text", "1) text", "1: text", "1 - text", "**1.** text", "[1] text"
+            m = re.match(
+                r"(?:\[?\s*(\d+)\s*[.\]):]\s*|(?:\*\*)?(\d+)[.\)]\s*)",
+                cleaned,
+            )
+            if m:
+                idx_val = m.group(1) or m.group(2)
+                if idx_val:
+                    idx = int(idx_val) - 1
+                    val = cleaned[m.end():].strip()
+                    if 0 <= idx < n and val:
+                        out[idx] = val[:200]
+                        continue
+
         # Fallback: if numbered parsing yielded nothing, try heuristics
-        if not any(out) and text.strip():
-            lines = [l.strip() for l in text.splitlines() if l.strip()]
-            # One line per chunk (bullet list or plain list)
-            if len(lines) >= n:
+        if not any(out):
+            # Bullet list: lines starting with - or *
+            bullets = [re.sub(r"^[-*\d.)\s]+", "", l).strip() for l in lines]
+            bullets = [b for b in bullets if b]
+            if len(bullets) >= n:
+                for i in range(min(n, len(bullets))):
+                    out[i] = bullets[i][:200]
+            else:
+                # One summary per available line up to n
                 for i in range(min(n, len(lines))):
-                    candidate = re.sub(r"^[-*\d.)\s]+", "", lines[i]).strip()
+                    candidate = re.sub(r"^[-*\d.)\s\[\]]+", "", lines[i]).strip()
                     if candidate:
                         out[i] = candidate[:200]
-            # Single block of text — fall back to placing it as first summary
-            if not any(out):
-                out[0] = text.strip()[:200]
         return out
 
     def enrich_chunks(self, chunks: list[dict]) -> list[dict]:

@@ -12,35 +12,39 @@ RECENCY_HALF_LIFE_DAYS = 365  # score halves every ~1 year by default
 
 
 def _parse_timestamp(val) -> datetime | None:
-    """Try to parse a value into a timezone-aware UTC datetime.
+    """Parse a value into a timezone-aware UTC datetime.
 
-    Supports ISO strings (with or without timezone), unix epochs (int/float),
+    CONTRACT: Always returns timezone-aware datetime or None.
+    Never returns a naive datetime.
+
+    Supports ISO strings (with or without timezone, Z suffix),
+    unix epochs (int/float, seconds or milliseconds),
     and datetime objects (naive ones are treated as UTC).
     """
     if val is None:
         return None
     if isinstance(val, datetime):
-        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+        # Ensure aware — naive datetimes are treated as UTC
+        return val if val.tzinfo is not None else val.replace(tzinfo=timezone.utc)
     if isinstance(val, (int, float)):
-        # Epoch seconds — assume reasonable range
         if val > 1e12:  # milliseconds
             val = val / 1000
         try:
             return datetime.fromtimestamp(val, tz=timezone.utc)
-        except (OSError, ValueError):
+        except (OSError, ValueError, OverflowError):
             return None
     if isinstance(val, str):
         s = val.strip()
         if not s:
             return None
-        # Normalize trailing Z
+        # Normalize trailing Z to +00:00 for fromisoformat
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
         try:
             dt = datetime.fromisoformat(s)
         except (ValueError, TypeError):
             return None
-        # Always return timezone-aware — treat naive strings as UTC
+        # CRITICAL: Always return aware datetime
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
@@ -53,41 +57,50 @@ def apply_recency_bias(
 ) -> list[dict]:
     """Apply freshness decay to combined_score. Newer docs get a boost.
 
+    TOTAL FUNCTION — never raises. On any error for a result,
+    that result gets a neutral factor of 1.0 (no change) and
+    processing continues.
+
     Looks for a date field in each result (in order of priority):
       created_at, indexed_at, published_at, updated_at, year
 
-    The boost is multiplicative: score *= decay_factor where
-    decay_factor = 2^(-age_days / half_life_days).
     Documents with no parseable date get a neutral factor of 1.0.
     """
-    now = datetime.now(timeout=timezone.utc) if hasattr(datetime, "timeout") else datetime.now(timezone.utc)
+    if not results or half_life_days <= 0:
+        return results
+
+    now = datetime.now(timezone.utc)
     decay_rate = math.log(2) / half_life_days
 
     for r in results:
-        date_val = (
-            r.get("created_at")
-            or r.get("indexed_at")
-            or r.get("published_at")
-            or r.get("updated_at")
-        )
-        dt = _parse_timestamp(date_val)
+        try:
+            date_val = (
+                r.get("created_at")
+                or r.get("indexed_at")
+                or r.get("published_at")
+                or r.get("updated_at")
+            )
+            dt = _parse_timestamp(date_val)
 
-        # Fallback: use integer year field (e.g. 2024)
-        if dt is None:
-            year = r.get("year")
-            if isinstance(year, (int, float)) and 1900 < year < 2100:
-                dt = datetime(int(year), 6, 15, tzinfo=timezone.utc)  # mid-year estimate
+            # Fallback: use integer year field (e.g. 2024)
+            if dt is None:
+                year = r.get("year")
+                if isinstance(year, (int, float)) and 1900 < year < 2100:
+                    dt = datetime(int(year), 6, 15, tzinfo=timezone.utc)
 
-        if dt is not None:
-            age_days = max((now - dt).total_seconds() / 86400, 0)
-            decay = math.exp(-decay_rate * age_days)
-        else:
-            decay = 1.0  # no date = no penalty
+            if dt is not None:
+                age_days = max((now - dt).total_seconds() / 86400, 0)
+                decay = math.exp(-decay_rate * age_days)
+            else:
+                decay = 1.0  # no date = no penalty
 
-        r["combined_score"] = r.get("combined_score", 0.0) * decay
-        r.setdefault("score_breakdown", {})["recency_factor"] = round(decay, 4)
+            r["combined_score"] = r.get("combined_score", 0.0) * decay
+            r.setdefault("score_breakdown", {})["recency_factor"] = round(decay, 4)
+        except Exception:
+            # TOTAL FUNCTION: on ANY error for a result, use neutral factor
+            r.setdefault("score_breakdown", {})["recency_factor"] = 1.0
 
-    results.sort(key=lambda x: x["combined_score"], reverse=True)
+    results.sort(key=lambda x: x.get("combined_score", 0), reverse=True)
     return results
 
 

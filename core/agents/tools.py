@@ -59,6 +59,17 @@ class ToolRegistry:
 
 # ── Built-in tool implementations ───────────────────────────────────
 
+# Safe import gate for the Python execution tool
+_ALLOWED_IMPORTS = {"math", "re", "json", "collections", "itertools", "functools", "statistics", "decimal", "random", "string", "typing"}
+
+
+def _safe_import(name: str, *args, **kwargs):
+    """Only allow importing from the safe list. Blocks os, sys, subprocess, etc."""
+    base = name.split(".")[0]
+    if base in _ALLOWED_IMPORTS:
+        return __import__(name, *args, **kwargs)
+    raise ImportError(f"Module '{name}' is not allowed in the sandbox")
+
 
 def _make_search_tool(store, research_store, config):
     """Create a knowledge base search tool."""
@@ -158,6 +169,30 @@ def _make_web_search_tool():
 
 def _make_python_tool():
     """Create a Python code execution tool (sandboxed)."""
+    # Safe builtins subset — no file/process/network access
+    _SAFE_BUILTINS = {
+        # Core
+        "abs": abs, "all": all, "any": any, "bool": bool, "bytes": bytes,
+        "chr": chr, "complex": complex, "dict": dict, "divmod": divmod,
+        "enumerate": enumerate, "filter": filter, "float": float,
+        "format": format, "frozenset": frozenset, "hash": hash,
+        "hex": hex, "id": id, "int": int, "isinstance": isinstance,
+        "issubclass": issubclass, "iter": iter, "len": len, "list": list,
+        "map": map, "max": max, "min": min, "next": next, "object": object,
+        "oct": oct, "ord": ord, "pow": pow, "print": print, "range": range,
+        "repr": repr, "reversed": reversed, "round": round, "set": set,
+        "slice": slice, "sorted": sorted, "str": str, "sum": sum,
+        "tuple": tuple, "type": type, "zip": zip,
+        "True": True, "False": False, "None": None,
+        "Exception": Exception, "ValueError": ValueError,
+        "TypeError": TypeError, "KeyError": KeyError,
+        "IndexError": IndexError, "AttributeError": AttributeError,
+        "StopIteration": StopIteration, "ZeroDivisionError": ZeroDivisionError,
+        "ArithmeticError": ArithmeticError, "EOFError": EOFError,
+        "RuntimeError": RuntimeError, "NotImplementedError": NotImplementedError,
+        "__import__": _safe_import,  # only allow math/re/json/collections
+    }
+
     def execute_python(code: str) -> dict:
         import io
         import contextlib
@@ -165,7 +200,7 @@ def _make_python_tool():
         local_ns: dict = {"math": math, "re": re, "json": json}
         try:
             with contextlib.redirect_stdout(buf):
-                exec(code, {"__builtins__": __builtins__}, local_ns)  # noqa: S102
+                exec(code, {"__builtins__": _SAFE_BUILTINS}, local_ns)
             output = buf.getvalue()
             if len(output) > 5000:
                 output = output[:5000] + "\n... (truncated)"
@@ -175,7 +210,7 @@ def _make_python_tool():
 
     return Tool(
         name="execute_python",
-        description="Execute Python code for calculations, data processing, or analysis. Use for math, string manipulation, or computing metrics.",
+        description="Execute Python code for calculations, data processing, or analysis. Use for math, string manipulation, or computing metrics. Does NOT have file/network/process access.",
         parameters={
             "type": "object",
             "properties": {

@@ -1,7 +1,15 @@
-"""LanceDB wrapper — vector + full-text + hierarchy in one local table."""
+"""LanceDB wrapper — vector + full-text + hierarchy in one local table.
+
+.. deprecated::
+    Use :class:`LanceDBDocumentIndex` (via ``create_document_index()``)
+    instead. This module is kept for backward compatibility.
+"""
 from __future__ import annotations
 
+import warnings
+
 import re
+import threading
 from collections import Counter
 from pathlib import Path
 
@@ -92,17 +100,103 @@ def _validate_identifier(name: str) -> str:
 class VectorStore:
     def __init__(self, path: str = "./data/lancedb", table: str = "knowledge",
                  dim: int = 768, schema_type: str = "default"):
+        warnings.warn(
+            "VectorStore is deprecated; use LanceDBDocumentIndex via "
+            "create_document_index() or api.deps.get_document_index() instead. "
+            "VectorStore will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         path = resolve_data_path(path)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.db = lancedb.connect(path)
         self.table_name = table
         self.dim = dim
         self.schema_type = schema_type
+        # ── FTS version tracking — monotonic counters ──
+        self._data_version: int = 0      # incremented on every write
+        self._fts_version: int = -1      # -1 = never built
+        self._fts_lock = threading.Lock()
+        self._db_path = path             # saved for close/reopen strategy
         if table in self.db.table_names():
             self.table = self.db.open_table(table)
         else:
             schema = _research_schema(dim) if schema_type == "research" else _schema(dim)
             self.table = self.db.create_table(table, schema=schema)
+
+    # ── FTS version tracking ─────────────────────────────────────────
+
+    def _mark_fts_dirty(self) -> None:
+        """Call after every write that changes table data."""
+        self._data_version += 1
+
+    def _rebuild_fts(self) -> None:
+        """Force rebuild FTS index. Handles Windows file locking.
+
+        On Windows, ``replace=True`` can report success while producing a
+        corrupted index (row indices out of sync).  Strategy: skip the
+        in-place replace and always use close/reopen + ``replace=False``
+        on Windows.  On Linux/macOS the in-place replace suffices.
+        """
+        import sys as _sys
+
+        # Strategy 1: In-place replace (reliable on Linux/macOS).
+        # On Windows skip this — replace=True is unreliable.
+        if _sys.platform != "win32":
+            try:
+                self.table.create_fts_index("text", replace=True)
+                self._fts_version = self._data_version
+                log.info("FTS rebuilt (replace=True) — version %d", self._fts_version)
+                return
+            except PermissionError:
+                log.info("FTS replace blocked — using close/reopen strategy")
+            except Exception as e:
+                log.warning("FTS replace failed: %s — trying close/reopen", e)
+        else:
+            log.info("Windows detected — using close/reopen strategy for FTS")
+
+        # Strategy 2: Close, delete, reopen (required on Windows)
+        import gc
+        import shutil
+
+        try:
+            db_path = str(self._db_path)
+            table_name = self._table_name
+            lance_dir = Path(db_path) / f"{table_name}.lance"
+            index_dir = lance_dir / "_indices"
+
+            # Release file locks by dropping references and collecting garbage
+            self.table = None
+            self.db = None
+            gc.collect()
+
+            # Delete the stale index directory
+            if index_dir.exists():
+                shutil.rmtree(index_dir, ignore_errors=True)
+                log.info("Deleted stale FTS index: %s", index_dir)
+
+            # Reopen connection and create fresh index
+            self.db = lancedb.connect(db_path)
+            self.table = self.db.open_table(table_name)
+            self.table.create_fts_index("text", replace=False)
+            self._fts_version = self._data_version
+            log.info("FTS rebuilt (close/reopen) — version %d", self._fts_version)
+        except Exception as e:
+            log.error("FTS rebuild failed: %s", e)
+
+    def _ensure_fts_fresh(self) -> None:
+        """Rebuild FTS index if stale. Thread-safe, cross-platform.
+
+        Call before every FTS query. Uses a lock to ensure only one
+        rebuild runs at a time. If rebuild fails, FTS queries will
+        return empty results (vector search still works).
+        """
+        with self._fts_lock:
+            if self._fts_version >= self._data_version:
+                return  # FTS is current
+            self._rebuild_fts()
+
+    # ── Write operations (all call _mark_fts_dirty) ──────────────────
 
     def upsert(self, rows: list[dict]) -> None:
         if not rows:
@@ -111,21 +205,26 @@ class VectorStore:
         placeholders = ",".join(f"'{_esc(i)}'" for i in ids)
         self.table.delete(f"id IN ({placeholders})")
         self.table.add(rows)
+        self._mark_fts_dirty()
 
     def delete_by_doc(self, doc_id: str) -> None:
         self.table.delete(f"doc_id = '{_esc(doc_id)}'")
+        self._mark_fts_dirty()
 
     def delete_by_source(self, source: str) -> None:
         self.table.delete(f"source = '{_esc(source)}'")
+        self._mark_fts_dirty()
 
     def delete_by_repo(self, repo: str) -> None:
         self.table.delete(f"repo = '{_esc(repo)}'")
+        self._mark_fts_dirty()
 
     def delete_docs(self, doc_ids: list[str]) -> None:
         if not doc_ids:
             return
         placeholders = ",".join(f"'{_esc(i)}'" for i in doc_ids)
         self.table.delete(f"doc_id IN ({placeholders})")
+        self._mark_fts_dirty()
 
     def search(self, query_vector: list[float], k: int = 10,
                source_filter: str | None = None,
@@ -152,7 +251,7 @@ class VectorStore:
         try:
             if self.count() == 0:
                 return []
-            self.ensure_fts()
+            self._ensure_fts_fresh()
             q = self.table.search(query, query_type="fts").limit(k)
             if source_filter:
                 q = q.where(f"source = '{_esc(source_filter)}'")
@@ -189,28 +288,63 @@ class VectorStore:
                 filtered.append(r)  # User has access
         return filtered
 
-    def ensure_acl_columns(self) -> bool:
-        """Add ACL columns to an existing table if they don't exist."""
-        if self._has_acl_column():
-            return True
-        try:
-            import pyarrow as pa
-            tbl = self.table.to_arrow()
-            n = tbl.num_rows
-            # Add nullable ACL columns
-            acl_read_default = pa.array([[] for _ in range(n)], type=pa.list_(pa.string()))
-            acl_write_default = pa.array([[] for _ in range(n)], type=pa.list_(pa.string()))
-            acl_owner_default = pa.array(["" for _ in range(n)], type=pa.string())
-            tbl = tbl.append_column("acl_read", acl_read_default)
-            tbl = tbl.append_column("acl_write", acl_write_default)
-            tbl = tbl.append_column("acl_owner", acl_owner_default)
-            self.table.delete("true")
-            self.table.add(tbl)
-            log.info("acl_columns_added", extra={"rows": n})
-            return True
-        except Exception as e:
-            log.warning("ensure_acl_columns failed: %s", e)
-            return False
+    def ensure_columns(self, new_columns: dict[str, pa.DataType]) -> None:
+        """Add columns to the table schema WITHOUT deleting data.
+
+        Uses additive-only migration:
+        1. Check which columns are missing
+        2. Read existing data
+        3. Add missing columns with type-appropriate defaults
+        4. Write to a new table
+        5. Swap references
+
+        NEVER deletes data. Idempotent (safe to call multiple times).
+        """
+        existing_fields = {f.name for f in self.table.schema}
+        missing = {
+            name: dtype for name, dtype in new_columns.items()
+            if name not in existing_fields
+        }
+
+        if not missing:
+            return  # Schema already has all columns
+
+        log.info("Adding %d columns to table '%s': %s",
+                 len(missing), self._table_name, list(missing.keys()))
+
+        data = self.table.to_arrow()
+
+        for col_name, col_type in missing.items():
+            if pa.types.is_string(col_type) or pa.types.is_large_string(col_type):
+                default = ""
+            elif pa.types.is_integer(col_type) or pa.types.is_int32(col_type) or pa.types.is_int64(col_type):
+                default = 0
+            elif pa.types.is_floating(col_type) or pa.types.is_float32(col_type) or pa.types.is_float64(col_type):
+                default = 0.0
+            elif pa.types.is_boolean(col_type):
+                default = False
+            elif pa.types.is_list(col_type):
+                default = []
+            else:
+                default = None
+            data = data.append_column(
+                col_name,
+                pa.array([default] * len(data), type=col_type)
+            )
+
+        # Write to a new table (atomic — old table untouched until swap)
+        migrated_name = f"{self._table_name}_migrated"
+        self.db.create_table(migrated_name, data, mode="overwrite")
+
+        # Swap: drop old table, rename new
+        old_name = self._table_name
+        self.db.drop_table(old_name)
+        self.table = self.db.open_table(migrated_name)
+        self._table_name = migrated_name
+
+        self._mark_fts_dirty()  # Schema changed — FTS likely needs rebuild
+        log.info("Schema migration complete: %d rows preserved, %d columns added",
+                 len(data), len(missing))
 
     def set_chunk_acl(
         self,
@@ -223,7 +357,11 @@ class VectorStore:
         if not chunk_ids:
             return 0
         if not self._has_acl_column():
-            self.ensure_acl_columns()
+            self.ensure_columns({
+                "acl_read": pa.list_(pa.string()),
+                "acl_write": pa.list_(pa.string()),
+                "acl_owner": pa.string(),
+            })
 
         tbl = self.table.to_arrow()
         ids_array = tbl.column("id").combine_chunks().to_pylist()
@@ -278,7 +416,11 @@ class VectorStore:
     def set_repo_acl(self, repo: str, acl_read: list[str]) -> int:
         """Set ACL on all chunks in a repository."""
         if not self._has_acl_column():
-            self.ensure_acl_columns()
+            self.ensure_columns({
+                "acl_read": pa.list_(pa.string()),
+                "acl_write": pa.list_(pa.string()),
+                "acl_owner": pa.string(),
+            })
         tbl = self.table.to_arrow()
         repo_col = tbl.column("repo").combine_chunks().to_pylist()
         chunk_ids = [
@@ -343,21 +485,4 @@ class VectorStore:
 
     def clear(self) -> None:
         self.table.delete("true")
-
-    def ensure_fts(self) -> None:
-        """Ensure FTS index exists.
-
-        Tries replace=True first (includes new data). On Windows this can fail
-        with PermissionError because the old index directory is locked -- in
-        that case falls back to replace=False (creates if absent, no-op
-        otherwise).
-        """
-        try:
-            self.table.create_fts_index("text", replace=True)
-        except PermissionError:
-            try:
-                self.table.create_fts_index("text", replace=False)
-            except Exception as e2:
-                log.warning("ensure_fts fallback failed: %s", e2)
-        except Exception as e:
-            log.warning("ensure_fts failed: %s", e)
+        self._mark_fts_dirty()
