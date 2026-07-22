@@ -3,928 +3,237 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Knowledge Hub</title>
-<style>
-/* ═══ Reset & Design Tokens ═════════════════════════ */
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f7f8fa;--surface:#fff;--surface-hover:#f2f3f7;--border:#e4e7ec;--border-strong:#d1d5db;--primary:#4f46e5;--primary-hover:#4338ca;--primary-soft:#eef2ff;--primary-glow:rgba(79,70,229,0.2);--accent:#f59e0b;--accent-soft:#fffbeb;--success:#10b981;--success-soft:#ecfdf5;--danger:#ef4444;--danger-soft:#fef2f2;--text:#111318;--text-dim:#6e7687;--text-muted:#9ca3af;--radius-sm:6px;--radius:10px;--radius-lg:16px;--radius-xl:20px;--shadow-sm:0 1px 2px rgba(0,0,0,0.04);--shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);--shadow-md:0 4px 12px rgba(0,0,0,0.05);--shadow-lg:0 8px 30px rgba(0,0,0,0.06);--shadow-xl:0 20px 60px rgba(0,0,0,0.08);--ease-out:cubic-bezier(0.16,1,0.3,1);--ease-spring:cubic-bezier(0.34,1.56,0.64,1);--font:'Inter',system-ui,-apple-system,sans-serif;--font-mono:'JetBrains Mono','SF Mono','Fira Code',monospace;--nav-h:56px}
-.dark{--bg:#0c0e14;--surface:#15181f;--surface-hover:#1d212a;--border:#232730;--border-strong:#2f3542;--primary:#818cf8;--primary-hover:#6366f1;--primary-soft:#1e1b4b;--primary-glow:rgba(129,140,248,0.15);--accent:#fbbf24;--accent-soft:#451a03;--success:#34d399;--success-soft:#022c22;--danger:#f87171;--danger-soft:#450a0a;--text:#eef0f6;--text-dim:#9ca3af;--text-muted:#6b7280;--shadow-sm:0 1px 2px rgba(0,0,0,0.2);--shadow:0 1px 3px rgba(0,0,0,0.25);--shadow-md:0 4px 12px rgba(0,0,0,0.3);--shadow-lg:0 8px 30px rgba(0,0,0,0.35);--shadow-xl:0 20px 60px rgba(0,0,0,0.4)}
-body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
-::selection{background:var(--primary-soft);color:var(--primary)}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
-
-/* ═══ Nav ═════════════════════════════════════════ */
-.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.78);backdrop-filter:blur(14px) saturate(180%);-webkit-backdrop-filter:blur(14px) saturate(180%);border-bottom:1px solid var(--border);transition:box-shadow .3s var(--ease-out),border-color .3s}
-.dark .nav{background:rgba(12,14,20,0.85);border-color:var(--border)}
-.nav.scrolled{box-shadow:0 1px 8px rgba(0,0,0,0.04)}
-.nav-inner{max-width:1040px;margin:0 auto;height:var(--nav-h);padding:0 24px;display:flex;align-items:center;gap:28px}
-.nav-brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;letter-spacing:-0.02em;color:var(--text);flex-shrink:0}
-.nav-brand svg{width:20px;height:20px;color:var(--primary)}
-.nav-items{display:flex;gap:2px}
-.nav-item{display:flex;align-items:center;gap:6px;padding:6px 14px;border:none;background:none;color:var(--text-dim);font-size:13px;font-weight:500;border-radius:var(--radius);cursor:pointer;transition:all .2s var(--ease-out)}
-.nav-item:hover{background:var(--surface-hover);color:var(--text)}
-.nav-item.active{background:var(--primary-soft);color:var(--primary);font-weight:600}
-.nav-item .icon{font-size:15px;line-height:1}
-.nav-spacer{flex:1}
-.theme-btn{width:34px;height:34px;display:grid;place-items:center;border-radius:var(--radius);border:none;background:none;cursor:pointer;font-size:16px;color:var(--text-dim);transition:all .2s}
-.theme-btn:hover{background:var(--surface-hover);color:var(--text);transform:rotate(12deg)}
-
-/* ═══ Main Layout ════════════════════════════════ */
-.main{max-width:1040px;margin:0 auto;padding:28px 24px 60px}
-.section{display:none}
-.section.active{display:block;animation:pageIn .35s var(--ease-out) both}
-@keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.page-head{margin-bottom:28px}
-.page-head h1{font-size:22px;font-weight:700;letter-spacing:-0.03em;color:var(--text);margin-bottom:3px}
-.page-head p{font-size:14px;color:var(--text-dim)}
-.section-divider{height:1px;background:var(--border);margin:28px 0 20px}
-
-/* ═══ Search — hero element ════════════════════ */
-.search-hero{margin-bottom:28px}
-.search-bar{display:flex;gap:10px;position:relative}
-.search-bar .input-wrap{flex:1;position:relative;display:flex;align-items:center;gap:0}
-.search-bar .input-wrap .mag{position:absolute;left:16px;font-size:16px;color:var(--text-muted);pointer-events:none;transition:color .3s}
-.search-bar .input-wrap input{width:100%;height:50px;padding:0 16px 0 46px;border:1.5px solid var(--border);border-radius:var(--radius-xl);font-size:15px;outline:none;background:var(--surface);color:var(--text);transition:all .3s var(--ease-out)}
-.search-bar .input-wrap input:focus{border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-glow),var(--shadow-md)}
-.search-bar .input-wrap input:focus ~ .mag{color:var(--primary)}
-.search-bar .input-wrap input::placeholder{color:var(--text-muted)}
-.collection-btn{display:flex;align-items:center;gap:8px;height:50px;padding:0 18px;border:1.5px solid var(--border);border-radius:var(--radius-xl);font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text);white-space:nowrap;transition:all .2s}
-.collection-btn:hover{border-color:var(--primary);color:var(--primary)}
-.collection-picker{position:relative}
-.collection-dd{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:40;width:300px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-lg);padding:6px;max-height:320px;overflow-y:auto}
-.collection-dd.open{display:block;animation:ddIn .2s var(--ease-out) both}
-@keyframes ddIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-.collection-opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);font-size:13px;cursor:pointer;width:100%;border:none;background:none;text-align:left;color:var(--text);transition:background .15s}
-.collection-opt:hover{background:var(--surface-hover)}
-.collection-opt .ck{width:18px;height:18px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
-.collection-opt .ck.checked{border-color:var(--primary);background:var(--primary)}
-.collection-opt .ck.checked::after{content:'';width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);margin-top:-2px}
-.collection-opt .count{margin-left:auto;font-size:11px;font-weight:500;color:var(--text-muted);padding-left:8px}
-.collection-opt hr{margin:6px -6px;border:none;border-top:1px solid var(--border)}
-
-/* ── Filters ─────────────────────────────── */
-.filter-strip{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;min-height:2px}
-.filter-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:500;background:var(--primary-soft);color:var(--primary);transition:all .15s}
-.filter-chip .rm{cursor:pointer;font-size:14px;line-height:1;opacity:.6;transition:opacity .15s}
-.filter-chip .rm:hover{opacity:1}
-.filter-chip.clear{background:transparent;color:var(--text-muted);cursor:pointer}
-.filter-chip.clear:hover{color:var(--text)}
-
-/* ── Facets ─────────────────────────────── */
-.facets{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:20px;padding:16px 20px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
-.facet-group{}
-.facet-group h4{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px;font-weight:600}
-.facet-group .tags{display:flex;flex-wrap:wrap;gap:4px}
-.facet-item{padding:3px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text-dim);border:1px solid transparent;transition:all .15s}
-.facet-item:hover{background:var(--surface-hover);border-color:var(--border);color:var(--text)}
-
-/* ── Results ────────────────────────────── */
-.results-meta{font-size:13px;color:var(--text-dim);margin-bottom:12px}
-.result-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:10px;transition:all .2s var(--ease-out);cursor:default}
-.result-card:hover{border-color:var(--primary);box-shadow:var(--shadow-md)}
-.result-card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.result-card .top .info{flex:1;min-width:0}
-.result-card .title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px;line-height:1.4}
-.result-card .title a{color:var(--primary);text-decoration:none}
-.result-card .title a:hover{text-decoration:underline}
-.result-card .meta-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
-.result-card .meta-row .badge{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600}
-.result-card .meta-row .badge.src{background:var(--primary-soft);color:var(--primary)}
-.result-card .meta-row .badge.author{background:var(--surface-hover);color:var(--text-dim)}
-.result-card .score{font-size:12px;font-weight:600;color:var(--text-muted);flex-shrink:0}
-.result-card .snippet{font-size:13px;color:var(--text-dim);line-height:1.7;margin-top:10px}
-.result-card .snippet mark{background:#fef3c7;border-radius:2px;padding:1px 3px;color:#92400e}
-.dark .result-card .snippet mark{background:#451a03;color:#fbbf24}
-.result-card .tldr{margin-top:10px;padding:10px 14px;border-radius:var(--radius);background:var(--primary-soft);font-size:12px;color:var(--primary);line-height:1.5}
-.result-card .tldr strong{font-weight:600}
-.load-more-wrap{text-align:center;margin-top:16px}
-
-/* ═══ Buttons ═════════════════════════════════ */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all .2s var(--ease-out);white-space:nowrap}
-.btn:active{transform:scale(.97)}
-.btn-pri{background:var(--primary);color:#fff}
-.btn-pri:hover{background:var(--primary-hover);box-shadow:0 4px 12px var(--primary-glow);transform:translateY(-1px)}
-.btn-sec{background:var(--surface);color:var(--text);border:1.5px solid var(--border)}
-.btn-sec:hover{background:var(--surface-hover);border-color:var(--border-strong);transform:translateY(-1px)}
-.btn-ghost{background:none;color:var(--text-dim);border:1px solid transparent}
-.btn-ghost:hover{background:var(--surface-hover);color:var(--text)}
-.btn-danger{background:var(--danger-soft);color:var(--danger);border:1px solid transparent}
-.btn-danger:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
-.btn-sm{padding:6px 14px;font-size:12px;border-radius:var(--radius-sm)}
-.btn-xs{padding:4px 10px;font-size:11px;border-radius:var(--radius-sm)}
-.btn-icon{width:34px;height:34px;padding:0;display:grid;place-items:center}
-.btn[disabled]{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
-
-/* ═══ Cards (generic) ════════════════════════ */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:10px;transition:all .2s var(--ease-out)}
-.card:hover{box-shadow:var(--shadow-md)}
-.card-title{font-size:15px;font-weight:600;margin-bottom:4px;line-height:1.4}
-.card-title a{color:var(--primary);text-decoration:none}
-.card-title a:hover{text-decoration:underline}
-
-/* ═══ Source Grid ════════════════════════════ */
-.source-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
-.source-card{position:relative;border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:22px 14px 18px;text-align:center;cursor:pointer;transition:all .25s var(--ease-out);background:var(--surface);overflow:hidden}
-.source-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--primary-soft),transparent 60%);opacity:0;transition:opacity .3s}
-.source-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border-strong)}
-.source-card:hover::before{opacity:1}
-.source-card.selected{border-color:var(--primary);background:var(--primary-soft)}
-.source-card.selected::before{opacity:1}
-.source-card .icon{position:relative;z-index:1;font-size:28px;margin-bottom:6px}
-.source-card .label{position:relative;z-index:1;font-size:13px;font-weight:600;color:var(--text)}
-.source-card .desc{position:relative;z-index:1;font-size:11px;color:var(--text-dim);margin-top:3px}
-
-/* ═══ Upload Zone ═══════════════════════════ */
-.upload-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:36px 20px;text-align:center;cursor:pointer;transition:all .3s var(--ease-out);margin-bottom:12px}
-.upload-zone:hover,.upload-zone.dragover{border-color:var(--primary);background:var(--primary-soft);box-shadow:0 0 0 4px var(--primary-glow)}
-.upload-zone .icon{font-size:36px;margin-bottom:8px}
-.upload-zone p{font-size:13px;color:var(--text-dim)}
-.upload-zone .sub{font-size:11px;color:var(--text-muted);margin-top:4px}
-.file-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
-.file-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);font-size:13px;transition:background .15s}
-.file-item:hover{background:var(--surface-hover)}
-.file-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.file-item .size{color:var(--text-muted);font-size:11px;flex-shrink:0;font-family:var(--font-mono)}
-.file-item .rm{cursor:pointer;font-size:15px;line-height:1;color:var(--text-muted);padding:2px;transition:color .15s}
-.file-item .rm:hover{color:var(--danger)}
-
-/* ═══ GitHub / Folder ═══════════════════════ */
-.repo-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:12px;transition:all .2s}
-.repo-card:hover{box-shadow:var(--shadow-md)}
-.repo-card .rh{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-.repo-card .rh .ri{font-size:24px}
-.repo-card .rh .rn{font-weight:700;font-size:15px;color:var(--text)}
-.repo-card .rh .rd{font-size:12px;color:var(--text-dim);margin-top:1px}
-.repo-card .rs{display:flex;gap:16px;font-size:12px;color:var(--text-muted)}
-.repo-card .rs span{display:flex;align-items:center;gap:4px}
-.folder-dd{display:none;margin-top:8px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;max-height:200px;overflow-y:auto}
-.folder-dd.open{display:block;animation:ddIn .2s var(--ease-out) both}
-.folder-it{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;transition:background .15s}
-.folder-it:last-child{border-bottom:none}
-.folder-it:hover{background:var(--surface-hover);padding-left:18px}
-.folder-it .fi{font-size:15px}
-.folder-it .fn{font-weight:500}
-.folder-it .fp{color:var(--text-muted);font-size:11px;margin-left:auto;font-family:var(--font-mono)}
-
-/* ═══ Config Panels ═════════════════════════ */
-.cfg-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-top:12px;box-shadow:var(--shadow);display:none}
-.cfg-panel.open{display:block;animation:panelIn .25s var(--ease-out) both}
-@keyframes panelIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-.cfg-panel .fld{margin-bottom:14px}
-.cfg-panel .fld:last-child{margin-bottom:0}
-.cfg-panel .fld label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:5px}
-.cfg-panel .fld input[type="text"],.cfg-panel .fld input[type="url"]{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:14px;outline:none;background:var(--bg);color:var(--text);transition:all .2s}
-.cfg-panel .fld input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
-.inline-row{display:flex;gap:8px}
-.inline-row input{flex:1}
-
-/* ═══ Job Board ════════════════════════════════ */
-.job-card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:10px;background:var(--surface);transition:all .2s}
-.job-card:hover{box-shadow:var(--shadow-md)}
-.job-card .jh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px}
-.job-card .jh .jhl{display:flex;align-items:center;gap:8px;min-width:0}
-.job-card .jh .jhl .state{padding:2px 10px;border-radius:999px;font-size:10px;font-weight:600;text-transform:capitalize}
-.job-card .jh .jhl .state.done{background:var(--success-soft);color:var(--success)}
-.job-card .jh .jhl .state.fail{background:var(--danger-soft);color:var(--danger)}
-.job-card .jh .jhl .state.run{background:var(--primary-soft);color:var(--primary)}
-.job-card .jh .jhl .state.other{background:var(--surface-hover);color:var(--text-dim)}
-.job-card .jh .jhl .cid{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.job-progress{height:5px;border-radius:3px;background:var(--surface-hover);overflow:hidden;margin-bottom:8px}
-.job-progress .bar{height:100%;border-radius:3px;transition:width .6s var(--ease-out);min-width:2%}
-.job-progress .bar.done{background:linear-gradient(90deg,var(--success),#059669)}
-.job-progress .bar.fail{background:var(--danger)}
-.job-progress .bar.run{background:linear-gradient(90deg,var(--primary),#818cf8)}
-.job-stats{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:4px}
-.job-stats span{font-family:var(--font-mono);font-size:11px}
-.job-err{font-size:12px;color:var(--danger);margin-top:6px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--danger-soft)}
-.job-ts{font-size:10px;color:var(--text-muted);margin-top:6px}
-
-/* ═══ Chat ════════════════════════════════════ */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - var(--nav-h) - 110px);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);overflow:hidden}
-.chat-msgs{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
-.msg{max-width:78%;padding:14px 18px;border-radius:var(--radius-lg);font-size:14px;line-height:1.7;animation:msgIn .3s var(--ease-out) both}
-@keyframes msgIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-.msg.user{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
-.msg.assist{align-self:flex-start;border:1px solid var(--border);background:var(--bg);border-bottom-left-radius:4px}
-.msg .sources{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
-.msg .sources a{display:block;color:var(--primary);text-decoration:none;margin-top:3px;font-size:12px}
-.msg .sources a:hover{text-decoration:underline}
-.chat-input-wrap{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--surface)}
-.chat-input-wrap input{flex:1;height:46px;padding:0 16px;border:1.5px solid var(--border);border-radius:var(--radius-xl);font-size:14px;outline:none;background:var(--bg);color:var(--text);transition:all .2s}
-.chat-input-wrap input:focus{border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-glow)}
-
-/* ═══ Research ═════════════════════════════════ */
-.res-controls{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
-.res-controls .lbl{font-size:12px;font-weight:600;color:var(--text-dim)}
-.res-controls .src-tgl{cursor:pointer;gap:4px;font-size:12px}
-.res-controls input[type="number"]{width:52px;font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)}
-.res-controls select{font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)}
-
-/* ═══ Toast ═══════════════════════════════════════ */
-.toast{position:fixed;bottom:24px;right:24px;z-index:100;padding:14px 20px;border-radius:var(--radius-lg);font-size:13px;font-weight:500;color:#fff;transform:translateY(100px);opacity:0;transition:all .4s var(--ease-spring);max-width:400px;box-shadow:var(--shadow-lg);pointer-events:none}
-.toast.show{transform:translateY(0);opacity:1}
-.toast.ok{background:var(--success)}
-.toast.err{background:var(--danger)}
-.toast.info{background:var(--primary)}
-
-/* ═══ Utility ════════════════════════════════ */
-.loading{display:flex;align-items:center;justify-content:center;padding:48px 0;color:var(--text-dim);gap:10px}
-.loading .spin{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.empty{padding:48px 0;text-align:center;color:var(--text-dim)}
-.empty strong{display:block;font-size:14px;color:var(--text);margin-bottom:4px}
-.empty .sub{font-size:13px;color:var(--text-muted)}
-.section-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.section-title .emoji{font-size:16px}
-.mt-12{margin-top:12px}
-.mt-20{margin-top:20px}
-.mb-8{margin-bottom:8px}
-.hide{display:none!important}
-
-/* ═══ Collection List ═══════════════════════ */
-.coll-item{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;background:var(--surface);transition:all .15s}
-.coll-item:hover{box-shadow:var(--shadow-md)}
-.coll-item .cl{min-width:0}
-.coll-item .cl .cn{font-size:14px;font-weight:600;color:var(--text)}
-.coll-item .cl .cm{font-size:12px;color:var(--text-dim);margin-top:2px}
-.coll-item .cb{flex-shrink:0}
-
-/* ═══ Empty states ══════════════════════════ */
-.empty-state{padding:56px 20px;text-align:center}
-.empty-state .eicon{font-size:36px;margin-bottom:10px;opacity:.5}
-.empty-state strong{display:block;font-size:14px;color:var(--text);margin-bottom:4px}
-.empty-state p{font-size:13px;color:var(--text-dim)}
-
-/* ═══ Responsive ════════════════════════════ */
-@media(max-width:768px){
-  .nav-inner{padding:0 16px;gap:14px}
-  .nav-items{gap:0}
-  .nav-item{padding:6px 10px;font-size:12px}
-  .nav-item .nav-lbl{display:none}
-  .main{padding:20px 16px 40px}
-  .source-grid{grid-template-columns:repeat(2,1fr)}
-  .search-bar{flex-direction:column}
-  .collection-dd{right:auto;left:0;width:100%}
-  .chat-wrap{height:calc(100vh - var(--nav-h) - 100px)}
-  .msg{max-width:90%}
-}
-@media(max-width:480px){
-  .source-grid{grid-template-columns:1fr 1fr}
-  .result-card{padding:16px}
-}
-</style>
+<title>Knowledge Hub — Search your knowledge</title>
+<meta name="description" content="A scholarly search & research hub over your indexed documents, code and papers." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Public+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
 
-<!-- ═══ Nav ═══════════════════════════════════ -->
-<nav class="nav" id="nav">
-  <div class="nav-inner">
-    <span class="nav-brand">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 016.5 2H20v20H6.5a2.5 2.5 0 010-5H20"/></svg>
-      Knowledge Hub
-    </span>
-    <div class="nav-items">
-      <button class="nav-item active" data-section="search"><span class="icon">🔍</span><span class="nav-lbl">Search</span></button>
-      <button class="nav-item" data-section="chat"><span class="icon">💬</span><span class="nav-lbl">Chat</span></button>
-      <button class="nav-item" data-section="index"><span class="icon">⚙️</span><span class="nav-lbl">Index</span></button>
-      <button class="nav-item" data-section="research"><span class="icon">🔬</span><span class="nav-lbl">Research</span></button>
-    </div>
-    <div class="nav-spacer"></div>
-    <button class="theme-btn" id="theme-btn" title="Toggle theme">🌙</button>
+<!-- ═══ Topbar ═══════════════════════════════════════ -->
+<nav class="topbar" id="nav">
+  <a class="brand" href="#" onclick="return false">
+    <span class="brand-mark">K</span>
+    <span class="brand-name">Knowledge<em>Hub</em></span>
+  </a>
+  <div class="nav">
+    <button class="nav-item active" data-section="search"><span class="icon">🔍</span><span class="nav-lbl">Search</span></button>
+    <button class="nav-item" data-section="chat"><span class="icon">💬</span><span class="nav-lbl">Chat</span></button>
+    <button class="nav-item" data-section="index"><span class="icon">📥</span><span class="nav-lbl">Index</span></button>
+    <button class="nav-item" data-section="research"><span class="icon">🔬</span><span class="nav-lbl">Research</span></button>
+  </div>
+  <div class="topbar-right">
+    <span class="status-pill"><span class="status-dot" id="status-dot"></span><span class="status-text" id="status-text">Ready</span></span>
+    <button class="theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">🌙</button>
   </div>
 </nav>
 
-<!-- ═══ Main ═══════════════════════════════════ -->
-<div class="main">
+<main class="main">
 
-<!-- ─── SEARCH ───────────────────────── -->
-<div class="section active" id="section-search">
+<!-- ═══ SEARCH ═══════════════════════════════════════ -->
+<section class="section active" id="section-search">
   <div class="page-head">
-    <h1>Search</h1>
-    <p>Search across your indexed collections</p>
+    <span class="eyebrow">Semantic + keyword search</span>
+    <h1>Search your <span class="accent">knowledge</span></h1>
+    <p>One query across every indexed folder, repo and note — ranked by hybrid relevance.</p>
   </div>
-  <div class="search-hero">
-    <div class="search-bar">
-      <div class="input-wrap">
-        <span class="mag">🔍</span>
-        <input type="text" id="search-input" placeholder="Search your knowledge base..." autofocus />
-      </div>
-      <div class="collection-picker">
-        <button class="collection-btn" id="collection-btn">All collections ▾</button>
-        <div class="collection-dd" id="collection-dd"></div>
-      </div>
+
+  <form class="search-shell" id="search-form" autocomplete="off">
+    <div class="search-field">
+      <span class="mag">🔍</span>
+      <input type="text" id="search-query" placeholder="Search documents, code, notes…" autofocus aria-label="Search query" />
+      <span class="kbd-hint">/</span>
     </div>
-  </div>
+    <div class="search-controls">
+      <label class="select"><select id="search-source" aria-label="Filter by source"><option value="">All sources</option></select></label>
+      <label class="select"><select id="search-repo" aria-label="Filter by repository"><option value="">All repos</option></select></label>
+      <label class="toggle"><input type="checkbox" id="search-hybrid" checked /><span class="track"></span><span class="lbl">Hybrid</span></label>
+      <button type="submit" class="btn btn-pri" id="search-btn">Search</button>
+    </div>
+  </form>
+
   <div class="filter-strip" id="filter-strip"></div>
   <div class="facets" id="facets"></div>
-  <div id="search-results"></div>
-</div>
-
-<!-- ─── CHAT ─────────────────────────── -->
-<div class="section" id="section-chat">
-  <div class="page-head">
-    <h1>Chat</h1>
-    <p>Ask questions about your indexed knowledge</p>
+  <div id="search-results">
+    <div class="empty-state">
+      <span class="eicon">🔍</span>
+      <strong>Start with a query</strong>
+      <p>Your indexed knowledge is one search away. Press <b>/</b> to focus.</p>
+    </div>
   </div>
+</section>
+
+<!-- ═══ CHAT ═════════════════════════════════════════ -->
+<section class="section" id="section-chat">
+  <div class="page-head">
+    <span class="eyebrow">Retrieval-augmented answers</span>
+    <h1>Ask your <span class="accent">library</span></h1>
+    <p>Answers grounded in your indexed sources, streamed with citations.</p>
+  </div>
+
   <div class="chat-wrap">
-    <div class="chat-msgs" id="chat-msgs">
-      <div class="empty-state"><div class="eicon">💬</div><strong>Ask anything</strong><p>Your assistant searches your collections for answers</p></div>
+    <div class="chat-msgs" id="chat-messages">
+      <div class="empty-state">
+        <span class="eicon">💬</span>
+        <strong>Ask anything</strong>
+        <p>The assistant retrieves from your collections and cites what it used.</p>
+      </div>
     </div>
     <div class="chat-input-wrap">
-      <input type="text" id="chat-input" placeholder="Ask a question..." />
-      <button class="btn btn-pri" id="chat-send-btn">Send</button>
+      <label class="select"><select id="chat-scope" aria-label="Chat scope"><option value="main">My knowledge</option><option value="research">Research papers</option></select></label>
+      <input type="text" id="chat-input" placeholder="Ask a question…" aria-label="Chat message" />
+      <button class="btn btn-pri" id="chat-btn">Send</button>
     </div>
   </div>
-</div>
+</section>
 
-<!-- ─── INDEX ────────────────────────── -->
-<div class="section" id="section-index">
+<!-- ═══ INDEX ════════════════════════════════════════ -->
+<section class="section" id="section-index">
   <div class="page-head">
-    <h1>Index</h1>
-    <p>Upload files, connect a GitHub repo, or pick a local folder</p>
+    <span class="eyebrow">Build your index</span>
+    <h1>Index your <span class="accent">sources</span></h1>
+    <p>Pick a local folder, a GitHub repo, or upload a ZIP — then index it into the knowledge base.</p>
   </div>
 
   <div class="source-grid">
-    <div class="source-card" data-source="upload">
-      <div class="icon">📁</div>
-      <div class="label">Upload Files</div>
-      <div class="desc">Documents, PDFs, code</div>
+    <div class="source-card" data-source="folder" tabindex="0" role="button">
+      <span class="icon">📂</span><div class="label">Local Folder</div><div class="desc">Index a directory from your machine</div>
     </div>
-    <div class="source-card" data-source="github">
-      <div class="icon">🐙</div>
-      <div class="label">GitHub</div>
-      <div class="desc">Clone &amp; index a repo</div>
+    <div class="source-card" data-source="github" tabindex="0" role="button">
+      <span class="icon">🐙</span><div class="label">GitHub Repo</div><div class="desc">Clone &amp; index a repository</div>
     </div>
-    <div class="source-card" data-source="folder">
-      <div class="icon">📂</div>
-      <div class="label">Local Folder</div>
-      <div class="desc">From your machine</div>
-    </div>
-    <div class="source-card" data-source="notes">
-      <div class="icon">📝</div>
-      <div class="label">Notes &amp; Docs</div>
-      <div class="desc">Knowledge base dir</div>
-    </div>
-  </div>
-
-  <!-- Upload -->
-  <div class="cfg-panel" id="panel-upload">
-    <div class="upload-zone" id="upload-zone">
-      <div class="icon">📤</div>
-      <p><strong>Drag &amp; drop files here</strong></p>
-      <p class="sub">or click to browse — .md, .txt, .pdf, .docx, .py, .js, .zip, .csv</p>
-      <input type="file" id="file-input" multiple hidden accept=".md,.txt,.pdf,.docx,.py,.js,.ts,.jsx,.tsx,.java,.go,.rs,.rb,.html,.css,.json,.xml,.yml,.yaml,.csv,.zip,.sh,.sql" />
-    </div>
-    <div class="file-list" id="file-list"></div>
-    <div class="fld" style="margin-bottom:0">
-      <label>Collection name</label>
-      <div class="inline-row">
-        <input type="text" id="upload-coll-name" placeholder="e.g. my-project-docs" />
-        <button class="btn btn-pri" id="upload-start-btn" disabled>Index Files</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- GitHub -->
-  <div class="cfg-panel" id="panel-github">
-    <div class="fld">
-      <label>GitHub repository URL</label>
-      <div class="inline-row">
-        <input type="url" id="github-url" placeholder="https://github.com/owner/repo" />
-        <button class="btn btn-sec" id="github-connect-btn">Connect</button>
-      </div>
-    </div>
-    <div id="github-info"></div>
-    <div class="fld mt-12 hide" id="github-coll-field">
-      <label>Collection name</label>
-      <div class="inline-row">
-        <input type="text" id="github-coll-name" placeholder="e.g. my-repo-docs" />
-        <button class="btn btn-pri" id="github-index-btn">Index Repo</button>
-      </div>
+    <div class="source-card" data-source="zip" tabindex="0" role="button">
+      <span class="icon">📦</span><div class="label">Upload ZIP</div><div class="desc">Documents, PDFs &amp; code archives</div>
     </div>
   </div>
 
   <!-- Folder -->
   <div class="cfg-panel" id="panel-folder">
     <div class="fld">
-      <label>Local folder to index</label>
+      <label for="folder-path">Folder path to index</label>
       <div class="inline-row">
-        <input type="text" id="folder-path" placeholder="C:/Users/you/projects/my-repo" />
-        <button class="btn btn-sec" id="folder-browse-btn">Browse</button>
+        <input type="text" id="folder-path" placeholder="/home/you/projects/my-docs" />
+        <button type="button" class="btn btn-sec" id="folder-browse">Browse</button>
       </div>
-      <div class="folder-dd" id="folder-dd"></div>
-    </div>
-    <div class="fld" style="margin-bottom:0">
-      <label>Collection name</label>
-      <div class="inline-row">
-        <input type="text" id="folder-coll-name" placeholder="e.g. my-folder-docs" />
-        <button class="btn btn-pri" id="folder-index-btn">Index Folder</button>
-      </div>
+      <div class="folder-dd" id="folder-list"></div>
     </div>
   </div>
 
-  <!-- Notes -->
-  <div class="cfg-panel" id="panel-notes">
+  <!-- GitHub -->
+  <div class="cfg-panel" id="panel-github">
+    <div class="fld">
+      <label for="github-repo">Repository (owner/name)</label>
+      <input type="text" id="github-repo" placeholder="ettasrinith/RAG" />
+    </div>
+    <div class="fld">
+      <label for="github-pat">Personal access token <span style="font-weight:400;color:var(--ink-muted)">(optional for public repos)</span></label>
+      <input type="password" id="github-pat" placeholder="ghp_…" />
+    </div>
     <div class="fld" style="margin-bottom:0">
-      <label>Collection name</label>
-      <p style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Indexes from the configured documents path in config.yaml</p>
-      <div class="inline-row">
-        <input type="text" id="notes-coll-name" placeholder="e.g. my-notes" />
-        <button class="btn btn-pri" id="notes-index-btn">Index Notes</button>
-      </div>
+      <label for="github-branch">Branch</label>
+      <input type="text" id="github-branch" placeholder="main" />
     </div>
   </div>
 
-  <div class="section-divider"></div>
+  <!-- ZIP -->
+  <div class="cfg-panel" id="panel-zip">
+    <div class="upload-zone" id="upload-zone">
+      <span class="icon">📤</span>
+      <p><strong>Drag &amp; drop a ZIP here</strong></p>
+      <p class="sub">or click to browse — up to 100 MB</p>
+      <input type="file" id="zip-file" accept=".zip" hidden />
+    </div>
+    <div id="file-list" style="margin-top:12px"></div>
+  </div>
 
-  <div class="section-title"><span class="emoji">📋</span> Job Board</div>
-  <div id="job-board"></div>
+  <div class="fld mt-20">
+    <label class="toggle"><input type="checkbox" id="force-full" /><span class="track"></span><span class="lbl">Force full re-index (ignore incremental cache)</span></label>
+  </div>
 
-  <div class="section-title mt-20"><span class="emoji">🗂️</span> Collections</div>
-  <div id="collections-list"></div>
-</div>
+  <div style="display:flex;gap:10px;margin-top:6px">
+    <button type="button" class="btn btn-pri" id="start-btn">▶ Start Indexing</button>
+    <button type="button" class="btn btn-danger" id="stop-btn" disabled>■ Stop</button>
+  </div>
 
-<!-- ─── RESEARCH ─────────────────────── -->
-<div class="section" id="section-research">
+  <div class="progress-card hide" id="progress-card">
+    <div class="progress-head">
+      <span class="t"><span class="spin" style="width:15px;height:15px"></span> Indexing</span>
+      <span class="pct" id="progress-percent">0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label">Starting…</div>
+    <div class="progress-log" id="progress-log"></div>
+  </div>
+</section>
+
+<!-- ═══ RESEARCH ═════════════════════════════════════ -->
+<section class="section" id="section-research">
   <div class="page-head">
-    <h1>Research Discovery</h1>
-    <p>Search academic papers and index them into your collections</p>
+    <span class="eyebrow">Academic discovery</span>
+    <h1>Discover <span class="accent">research papers</span></h1>
+    <p>One keyword across arXiv, Semantic Scholar &amp; OpenAlex — then index the papers you select.</p>
   </div>
-  <div class="search-bar" style="margin-bottom:16px">
-    <div class="input-wrap">
+
+  <form class="search-shell" id="discover-form" autocomplete="off">
+    <div class="search-field">
       <span class="mag">🔬</span>
-      <input type="text" id="research-input" placeholder="Discover papers across arXiv, Semantic Scholar, OpenAlex..." />
+      <input type="text" id="discover-query" placeholder="e.g. retrieval augmented generation, vector databases…" aria-label="Research query" />
     </div>
-    <button class="btn btn-pri" id="discover-btn">Discover</button>
-  </div>
+    <div class="search-controls">
+      <button type="submit" class="btn btn-pri" id="discover-btn">Discover</button>
+    </div>
+  </form>
+
   <div class="res-controls">
-    <span class="lbl">Sources:</span>
-    <label class="badge badge-gray src-tgl"><input type="checkbox" id="src-arxiv" checked style="accent-color:var(--primary)" /> arXiv</label>
-    <label class="badge badge-gray src-tgl"><input type="checkbox" id="src-s2" checked style="accent-color:var(--primary)" /> S2</label>
-    <label class="badge badge-gray src-tgl"><input type="checkbox" id="src-openalex" checked style="accent-color:var(--primary)" /> OpenAlex</label>
-    <span class="lbl">Limit:</span>
-    <input type="number" id="research-limit" value="10" />
-    <span class="lbl">Sort:</span>
-    <select id="research-sort">
+    <span class="lbl">Sources</span>
+    <label class="badge src-tgl"><input type="checkbox" id="src-arxiv" checked /> arXiv</label>
+    <label class="badge src-tgl"><input type="checkbox" id="src-s2" checked /> Semantic Scholar</label>
+    <label class="badge src-tgl"><input type="checkbox" id="src-oa" checked /> OpenAlex</label>
+    <span class="lbl">Limit</span>
+    <input type="number" id="discover-limit" value="10" min="1" max="100" aria-label="Results per source" />
+    <span class="lbl">Sort</span>
+    <label class="select"><select id="discover-sort" aria-label="Sort papers">
       <option value="relevance">Relevance</option>
       <option value="year_desc">Newest</option>
       <option value="year_asc">Oldest</option>
       <option value="citations_desc">Most cited</option>
-      <option value="citations_asc">Least cited</option>
-    </select>
+    </select></label>
   </div>
-  <div id="research-results"></div>
-</div>
 
-</div><!-- /main -->
+  <div id="discover-status" class="results-meta" style="display:none"></div>
+  <div id="discover-results"></div>
 
-<div id="toast" class="toast"></div>
+  <div class="select-bar hide" id="select-bar">
+    <span class="count" id="selected-count">0 selected</span>
+    <span class="spacer"></span>
+    <label class="select"><select id="collection-picker" aria-label="Target collection"><option value="default">default</option></select></label>
+    <button type="button" class="btn btn-pri" id="index-selected-btn">Index selected</button>
+  </div>
 
-<script>
-(function(){
-'use strict';
+  <div class="progress-card hide" id="research-progress-card">
+    <div class="progress-head">
+      <span class="t"><span class="spin" style="width:15px;height:15px"></span> Indexing papers</span>
+      <span class="pct" id="research-progress-percent">0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="research-progress-fill"></div></div>
+    <div class="progress-label" id="research-progress-label">Starting…</div>
+    <div class="progress-log" id="research-progress-log"></div>
+  </div>
 
-/* ═══ State ═══════════════════════════════════════════ */
-const S={
-  search:{q:'',collections:['*'],filters:[],results:[],hasMore:false,loading:false,nextPageToken:null},
-  chat:{streaming:false},
-  index:{source:null,jobs:[],collections:[],polling:null},
-  research:{q:'',papers:[],loading:false},
-  collections:[],
-  theme:localStorage.getItem('kh-theme')||'light',
-  files:[],
-  ghInfo:null,
-};
-let searchTimer=null;
+  <div class="section-divider"></div>
+  <div class="section-title"><span class="emoji">📚</span> Your research library</div>
+  <div class="res-controls" style="margin:0 0 12px">
+    <label class="select"><select id="library-collection" aria-label="Library collection"><option value="">All collections</option></select></label>
+  </div>
+  <div id="library-results"></div>
+</section>
 
-/* ═══ Utils ══════════════════════════════════════════ */
-function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML}
-function $(id){return document.getElementById(id)}
-function qs(s){return document.querySelector(s)}
-function qsa(s){return document.querySelectorAll(s)}
+</main>
 
-function toast(msg,type){
-  const el=$('toast');el.textContent=msg;el.className='toast '+type;
-  requestAnimationFrame(()=>el.classList.add('show'));
-  clearTimeout(el._hide);el._hide=setTimeout(()=>el.classList.remove('show'),4000);
-}
+<div id="toasts" aria-live="polite"></div>
 
-async function api(method,path,body){
-  const opts={method,headers:{'Content-Type':'application/json'}};
-  if(body)opts.body=JSON.stringify(body);
-  const res=await fetch(path,opts);
-  if(!res.ok){let e;try{e=await res.json()}catch{e={}}throw new Error(e.error?.message||e.detail||'Request failed')}
-  const ct=res.headers.get('content-type')||'';
-  if(ct.includes('text/event-stream'))return res;
-  return res.json();
-}
-
-async function apiStream(path,body,onEvent){
-  const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!res.ok){let e;try{e=await res.json()}catch{e={}}throw new Error(e.error?.message||e.detail||'Request failed')}
-  const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
-  while(true){
-    const{done,value}=await rd.read();if(done)break;
-    buf+=dec.decode(value,{stream:true});
-    const ls=buf.split('\n');buf=ls.pop()||'';
-    for(const l of ls){
-      if(!l.startsWith('data: '))continue;
-      try{onEvent(JSON.parse(l.slice(6)))}catch{}
-    }
-  }
-}
-
-/* ═══ Theme ══════════════════════════════════════════ */
-if(S.theme==='dark')document.documentElement.classList.add('dark');
-$('theme-btn').textContent=S.theme==='dark'?'☀️':'🌙';
-$('theme-btn').addEventListener('click',()=>{
-  S.theme=S.theme==='dark'?'light':'dark';
-  document.documentElement.classList.toggle('dark',S.theme==='dark');
-  localStorage.setItem('kh-theme',S.theme);
-  $('theme-btn').textContent=S.theme==='dark'?'☀️':'🌙';
-});
-window.addEventListener('scroll',()=>{$('nav').classList.toggle('scrolled',window.scrollY>10)},{passive:true});
-
-/* ═══ Nav ═══════════════════════════════════════════ */
-qsa('.nav-item').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const sec=btn.dataset.section;if(!sec)return;
-    qsa('.nav-item').forEach(b=>b.classList.remove('active'));
-    qsa('.section').forEach(s=>s.classList.remove('active'));
-    btn.classList.add('active');
-    const t=$('section-'+sec);if(t)t.classList.add('active');
-    if(sec==='index'){loadJobs();startJobPolling()}else{stopJobPolling()}
-    if(sec==='index'||sec==='research')loadCollections();
-  });
-});
-
-/* ═══ Collections ════════════════════════════════════ */
-async function loadCollections(){
-  try{S.collections=await api('GET','/v1/collections').then(d=>d.data||[])}catch{S.collections=[]}
-  renderPicker();renderCollList();
-}
-function renderPicker(){
-  const dd=$('collection-dd');
-  const all=S.collections.reduce((s,c)=>s+(c.doc_count||0),0);
-  const sel=S.search.collections,isAll=sel.includes('*');
-  let h='<button class="collection-opt" data-action="tall"><span class="ck'+(isAll?' checked':'')+'"></span><span style="font-weight:600">All collections</span><span class="count">'+all+'</span></button>';
-  h+='<hr>';
-  S.collections.forEach(c=>{
-    const ch=isAll||sel.includes(c.id);
-    h+='<button class="collection-opt" data-action="tcol" data-id="'+esc(c.id)+'"><span class="ck'+(ch?' checked':'')+'"></span><span>'+esc(c.name)+'</span><span class="count">'+(c.doc_count||0)+'</span></button>';
-  });
-  dd.innerHTML=h;
-  $('collection-btn').textContent=(isAll?'All collections':sel.length===1?(S.collections.find(c=>c.id===sel[0])?.name||'1 selected'):sel.length+' selected')+' ▾';
-}
-$('collection-btn').addEventListener('click',e=>{e.stopPropagation();$('collection-dd').classList.toggle('open')});
-document.addEventListener('click',()=>$('collection-dd').classList.remove('open'));
-$('collection-dd').addEventListener('click',e=>{
-  const b=e.target.closest('.collection-opt');if(!b)return;
-  if(b.dataset.action==='tall'){S.search.collections=S.search.collections.includes('*')?[]:['*'];renderPicker();doSearch();return}
-  if(b.dataset.action==='tcol'){
-    const id=b.dataset.id;
-    if(S.search.collections.includes('*'))S.search.collections=[id];
-    else{const i=S.search.collections.indexOf(id);if(i>=0)S.search.collections.splice(i,1);else S.search.collections.push(id);if(S.search.collections.length===S.collections.length)S.search.collections=['*']}
-    renderPicker();doSearch();
-  }
-});
-
-/* ═══ Search ════════════════════════════════════════ */
-$('search-input').addEventListener('input',function(){
-  clearTimeout(searchTimer);
-  searchTimer=setTimeout(()=>{S.search.q=this.value;S.search.page=0;S.search.results=[];S.search.nextPageToken=null;doSearch()},250);
-});
-async function doSearch(){
-  const q=S.search.q,c=$('search-results');
-  if(!q){c.innerHTML='<div class="empty-state"><div class="eicon">🔍</div><strong>Enter a query</strong><p>Your knowledge is only a search away</p></div>';return}
-  S.search.loading=true;c.innerHTML='<div class="loading"><div class="spin"></div>Searching…</div>';
-  try{
-    const d=await api('POST','/v1/documents:search',{q,collections:S.search.collections,page_size:20});
-    S.search.results=d.results||[];S.search.hasMore=!!d.next_page_token;S.search.nextPageToken=d.next_page_token||null;S.search.loading=false;renderSearch(d);
-  }catch(e){S.search.loading=false;c.innerHTML='<div class="empty-state"><div class="eicon">⚠️</div><strong>Search failed</strong><p>'+esc(e.message)+'</p></div>'}
-}
-function renderSearch(d){
-  const c=$('search-results');
-  if(!d.results||!d.results.length){c.innerHTML='<div class="empty-state"><div class="eicon">🔍</div><strong>No results</strong><p>Try a different query</p></div>';return}
-  const lbs={source_type:'Source',repo:'Repository',year:'Year'};
-  const fh=Object.entries(d.facets||{}).map(([f,vs])=>
-    '<div class="facet-group"><h4>'+(lbs[f]||f)+'</h4><div class="tags">'+
-    vs.map(v=>'<span class="facet-item" data-action="tf" data-field="'+esc(f)+'" data-value="'+esc(String(v.value))+'">'+esc(String(v.value))+'</span>').join('')+'</div></div>'
-  ).join('');
-  $('facets').innerHTML=fh||'';
-  let h='<div class="results-meta">'+(d.total||d.results.length)+' results</div>';
-  d.results.forEach(r=>{
-    const sn=r.highlights&&r.highlights.length?hlText(r.snippet,r.highlights):esc(r.snippet||'');
-    h+='<div class="result-card"><div class="top"><div class="info"><div class="title">'+esc(r.title||'Untitled')+'</div>'+
-      '<div class="meta-row">'+
-      '<span class="badge src">'+esc(r.source_type)+'</span>'+
-      (r.authors?'<span class="badge author">'+esc(r.authors)+'</span>':'')+
-      '</div></div><div class="score">'+((r.score*100).toFixed(0))+'%</div></div>'+
-      '<div class="snippet">'+sn+'</div>'+
-      (r.tldr?'<div class="tldr"><strong>TLDR: </strong>'+esc(r.tldr)+'</div>':'')+
-      '</div>';
-  });
-  if(S.search.hasMore)h+='<div class="load-more-wrap"><button class="btn btn-sec btn-sm" id="load-more-btn">Load more</button></div>';
-  c.innerHTML=h;
-}
-$('search-results').addEventListener('click',e=>{
-  const f=e.target.closest('.facet-item');if(f&&f.dataset.action==='tf'){toggleFilter(f.dataset.field,f.dataset.value);return}
-  if(e.target.id==='load-more-btn')loadMore();
-});
-async function loadMore(){
-  try{
-    const d=await api('POST','/v1/documents:search',{q:S.search.q,collections:S.search.collections,page_size:20,page_token:S.search.nextPageToken});
-    S.search.results=[...S.search.results,...(d.results||[])];S.search.hasMore=!!d.next_page_token;S.search.nextPageToken=d.next_page_token||null;renderSearch({...d,results:S.search.results});
-  }catch(e){toast('Load more failed: '+e.message,'err')}
-}
-function toggleFilter(field,value){
-  const i=S.search.filters.findIndex(f=>f.field===field&&f.value===value);
-  if(i>=0)S.search.filters.splice(i,1);else S.search.filters.push({field,value});
-  renderChips();doSearch();
-}
-function renderChips(){
-  const c=$('filter-strip');
-  if(!S.search.filters.length){c.innerHTML='';return}
-  c.innerHTML=S.search.filters.map(f=>'<span class="filter-chip">'+esc(f.value)+'<span class="rm" data-action="rf" data-field="'+esc(f.field)+'" data-value="'+esc(String(f.value))+'">×</span></span>').join('')+
-    '<span class="filter-chip clear" data-action="cf">Clear all</span>';
-}
-$('filter-strip').addEventListener('click',e=>{
-  const r=e.target.closest('.rm');if(r&&r.dataset.action==='rf'){toggleFilter(r.dataset.field,r.dataset.value);return}
-  if(e.target.dataset.action==='cf'){S.search.filters=[];renderChips();doSearch()}
-});
-function hlText(text,highlights){
-  if(!highlights||!highlights.length)return esc(text);
-  let r='',last=0;
-  [...highlights].sort((a,b)=>a.char_start-b.char_start).forEach(h=>{
-    r+=esc(text.slice(last,h.char_start));r+='<mark>'+esc(text.slice(h.char_start,h.char_end))+'</mark>';last=h.char_end;
-  });
-  r+=esc(text.slice(last));return r;
-}
-
-/* ═══ Chat ══════════════════════════════════════════ */
-$('chat-send-btn').addEventListener('click',sendChat);
-$('chat-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat()}});
-async function sendChat(){
-  const inp=$('chat-input'),q=inp.value.trim();
-  if(!q||S.chat.streaming)return;
-  inp.value='';S.chat.streaming=true;
-  const msgs=$('chat-msgs'),emp=msgs.querySelector('.empty-state');if(emp)emp.remove();
-  msgs.innerHTML+='<div class="msg user">'+esc(q)+'</div>';
-  const d=document.createElement('div');d.className='msg assist';
-  d.innerHTML='<div class="loading"><div class="spin"></div></div>';
-  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
-  let content='',sources=[];
-  try{
-    await apiStream('/v1/chat:ask',{q,collections:['*'],k:8,stream:true},ev=>{
-      if(ev.type==='sources'){sources=ev.sources||[]}
-      else if(ev.type==='token'){
-        content+=ev.text;
-        let h='<div>'+esc(content)+'</div>';
-        if(sources.length)h+='<div class="sources"><strong>Sources:</strong>'+sources.map(s=>'<a href="'+esc(s.url)+'" target="_blank">'+esc(s.title)+'</a>').join('')+'</div>';
-        d.innerHTML=h;msgs.scrollTop=msgs.scrollHeight;
-      }else if(ev.type==='done'){S.chat.streaming=false}
-      else if(ev.type==='error'){d.innerHTML='<div>Error: '+esc(ev.error)+'</div>';S.chat.streaming=false}
-    });
-  }catch(e){d.innerHTML='<div>Error: '+esc(e.message)+'</div>';S.chat.streaming=false}
-}
-
-/* ═══ Index - Sources ════════════════════════════════ */
-function showPanel(id){qsa('.cfg-panel').forEach(p=>p.classList.remove('open'));if(id)$(id).classList.add('open')}
-qsa('.source-card').forEach(c=>{
-  c.addEventListener('click',()=>{
-    qsa('.source-card').forEach(x=>x.classList.remove('selected'));
-    c.classList.add('selected');S.index.source=c.dataset.source;
-    const p={upload:'panel-upload',github:'panel-github',folder:'panel-folder',notes:'panel-notes'};
-    showPanel(p[S.index.source]||null);
-    if(S.index.source==='folder')loadFolders();
-  });
-});
-
-/* ═══ Upload ════════════════════════════════════════ */
-const uz=$('upload-zone'),fi=$('file-input');
-uz.addEventListener('click',()=>fi.click());
-uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('dragover')});
-uz.addEventListener('dragleave',()=>uz.classList.remove('dragover'));
-uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('dragover');if(e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
-fi.addEventListener('change',()=>{if(fi.files.length)addFiles(fi.files)});
-function addFiles(files){for(const f of files){if(!S.files.find(x=>x.name===f.name&&x.size===f.size))S.files.push(f)}renderFiles();$('upload-start-btn').disabled=!S.files.length}
-function renderFiles(){
-  const el=$('file-list');
-  if(!S.files.length){el.innerHTML='';return}
-  el.innerHTML=S.files.map((f,i)=>{
-    const sz=f.size>1024*1024?(f.size/1024/1024).toFixed(1)+' MB':(f.size/1024).toFixed(0)+' KB';
-    return '<div class="file-item"><span class="name">📄 '+esc(f.name)+'</span><span class="size">'+sz+'</span><span class="rm" data-idx="'+i+'">×</span></div>';
-  }).join('');
-}
-$('file-list').addEventListener('click',e=>{
-  const r=e.target.closest('.rm');if(!r)return;
-  const i=parseInt(r.dataset.idx,10);if(i>=0){S.files.splice(i,1);renderFiles()}
-  $('upload-start-btn').disabled=!S.files.length;
-});
-$('upload-start-btn').addEventListener('click',startUpload);
-async function startUpload(){
-  if(!S.files.length)return;
-  const name=$('upload-coll-name').value.trim()||('upload-'+Date.now());
-  const btn=$('upload-start-btn');btn.disabled=true;btn.textContent='Uploading…';
-  try{
-    const fd=new FormData();fd.append('collection_name',name);S.files.forEach(f=>fd.append('files',f));
-    const res=await fetch('/v1/documents:upload',{method:'POST',body:fd});
-    if(!res.ok){let e;try{e=await res.json()}catch{e={}}throw new Error(e.error?.message||e.detail||'Upload failed')}
-    const d=await res.json();
-    toast('Uploaded '+d.file_count+' files','ok');
-    S.files=[];renderFiles();$('upload-coll-name').value='';loadJobs();
-  }catch(e){toast(e.message,'err')}
-  finally{btn.textContent='Index Files';btn.disabled=false}
-}
-
-/* ═══ GitHub ═══════════════════════════════════════ */
-$('github-connect-btn').addEventListener('click',connectGH);
-$('github-url').addEventListener('keydown',e=>{if(e.key==='Enter')connectGH()});
-async function connectGH(){
-  const url=$('github-url').value.trim();if(!url)return;
-  const btn=$('github-connect-btn');btn.disabled=true;btn.textContent='…';
-  try{
-    const d=await api('POST','/v1/documents:github-lookup',{url});
-    if(d.error){toast(d.error,'err');btn.textContent='Connect';return}
-    S.ghInfo=d;
-    $('github-info').innerHTML='<div class="repo-card"><div class="rh"><span class="ri">🐙</span><div><div class="rn">'+esc(d.full_name||d.owner+'/'+d.repo)+'</div>'+(d.description?'<div class="rd">'+esc(d.description)+'</div>':'')+'</div></div><div class="rs">'+
-      (d.stars!=null?'<span>⭐ '+d.stars+'</span>':'')+'<span>📦 '+esc(d.default_branch||'main')+'</span></div></div>';
-    $('github-coll-field').classList.remove('hide');
-    $('github-coll-name').value=d.repo||'';
-    toast('Connected to '+d.full_name,'ok');
-    btn.textContent='✓ Connected';
-  }catch(e){toast('Failed: '+e.message,'err');btn.textContent='Connect'}
-  finally{btn.disabled=false}
-}
-$('github-index-btn').addEventListener('click',startGHIndex);
-async function startGHIndex(){
-  if(!S.ghInfo)return;
-  const name=$('github-coll-name').value.trim()||S.ghInfo.repo,url=$('github-url').value.trim();
-  const btn=$('github-index-btn');btn.disabled=true;btn.textContent='Starting…';
-  try{
-    const res=await fetch('/v1/documents:ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'github',collection_name:name,source_config:{repo_url:url,repo:S.ghInfo.full_name||(S.ghInfo.owner+'/'+S.ghInfo.repo)}})});
-    if(!res.ok){let e;try{e=await res.json()}catch{e={}}throw new Error(e.error?.message||'Request failed')}
-    toast('Indexing started for "'+name+'"','ok');
-    $('github-url').value='';$('github-info').innerHTML='';$('github-coll-field').classList.add('hide');S.ghInfo=null;loadJobs();
-    try{const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
-      while(true){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data: '))continue;try{const ev=JSON.parse(l.slice(6));if(ev.type==='done'){toast('GitHub indexing complete','ok');loadJobs()}if(ev.type==='error'){toast('GitHub error: '+(ev.error||''),'err');loadJobs()}}catch{}}}
-    }catch{}
-  }catch(e){toast(e.message,'err')}
-  finally{btn.textContent='Index Repo';btn.disabled=false}
-}
-
-/* ═══ Folder ═══════════════════════════════════════ */
-async function loadFolders(){
-  const list=$('folder-dd');
-  try{
-    const d=await api('GET','/folders'),folders=d.folders||[];
-    if(!folders.length){list.classList.remove('open');return}
-    list.innerHTML=folders.map(f=>'<div class="folder-it" data-path="'+esc(f.path)+'"><span class="fi">📂</span><span class="fn">'+esc(f.name)+'</span><span class="fp">'+esc(f.path)+'</span></div>').join('');
-    list.querySelectorAll('.folder-it').forEach(it=>{it.addEventListener('click',()=>{$('folder-path').value=it.dataset.path;list.classList.remove('open')})});
-  }catch{}
-}
-$('folder-browse-btn').addEventListener('click',()=>{$('folder-dd').classList.toggle('open');if($('folder-dd').classList.contains('open'))loadFolders()});
-$('folder-index-btn').addEventListener('click',startFolderIndex);
-$('folder-path').addEventListener('keydown',e=>{if(e.key==='Enter')startFolderIndex()});
-async function startFolderIndex(){
-  const path=$('folder-path').value.trim();
-  const name=$('folder-coll-name').value.trim()||(path?path.split('/').pop().split('\\').pop():'folder');
-  if(!path){toast('Enter a folder path first','err');return}
-  const btn=$('folder-index-btn');btn.disabled=true;btn.textContent='Starting…';
-  try{
-    const res=await fetch('/v1/documents:ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'folder',collection_name:name,source_config:{repo_path:path}})});
-    if(!res.ok){let e;try{e=await res.json()}catch{e={}}throw new Error(e.error?.message||'Request failed')}
-    toast('Indexing started for "'+name+'"','ok');
-    $('folder-path').value='';$('folder-coll-name').value='';loadJobs();
-    try{const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
-      while(true){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data: '))continue;try{const ev=JSON.parse(l.slice(6));if(ev.type==='done'){toast('Folder indexing complete','ok');loadJobs()}if(ev.type==='error'){toast('Indexing error: '+(ev.error||''),'err');loadJobs()}}catch{}}}
-    }catch{}
-  }catch(e){toast(e.message,'err')}
-  finally{btn.textContent='Index Folder';btn.disabled=false}
-}
-
-/* ═══ Notes ════════════════════════════════════════ */
-$('notes-index-btn').addEventListener('click',startNotesIndex);
-$('notes-coll-name').addEventListener('keydown',e=>{if(e.key==='Enter')startNotesIndex()});
-async function startNotesIndex(){
-  const name=$('notes-coll-name').value.trim()||'notes';
-  const btn=$('notes-index-btn');btn.disabled=true;btn.textContent='Starting…';
-  try{
-    const res=await fetch('/v1/documents:ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'notes',collection_name:name,source_config:{}})});
-    if(!res.ok){let e;try{e=await res.json()}catch{e={}}throw new Error(e.error?.message||'Request failed')}
-    toast('Indexing started for "'+name+'"','ok');
-    $('notes-coll-name').value='';loadJobs();
-    try{const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
-      while(true){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data: '))continue;try{const ev=JSON.parse(l.slice(6));if(ev.type==='done'){toast('Notes indexing complete','ok');loadJobs()}if(ev.type==='error'){toast('Indexing error: '+(ev.error||''),'err');loadJobs()}}catch{}}}
-    }catch{}
-  }catch(e){toast(e.message,'err')}
-  finally{btn.textContent='Index Notes';btn.disabled=false}
-}
-
-/* ═══ Jobs ══════════════════════════════════════════ */
-function startJobPolling(){stopJobPolling();S.index.polling=setInterval(loadJobs,3000)}
-function stopJobPolling(){if(S.index.polling){clearInterval(S.index.polling);S.index.polling=null}}
-async function loadJobs(){
-  try{const d=await api('GET','/v1/jobs').then(d=>d.data||[]);S.index.jobs=d;renderJobs()}catch{}
-}
-function renderJobs(){
-  const c=$('job-board');
-  if(!S.index.jobs.length){c.innerHTML='<div class="empty-state"><div class="eicon">📋</div><strong>No jobs yet</strong><p>Start indexing to see progress here</p></div>';return}
-  c.innerHTML=S.index.jobs.map(j=>{
-    const st=j.state==='done'?'done':j.state==='failed'?'fail':j.state==='cancelled'?'other':'run';
-    const bc=j.state==='done'?'done':j.state==='failed'?'fail':'run';
-    const can=j.state==='queued'||j.state==='indexing'||j.state==='embedding';
-    return '<div class="job-card"><div class="jh"><div class="jhl"><span class="state '+st+'">'+esc(String(j.state))+'</span><span class="cid">'+esc(String(j.collection_id||'').slice(0,12))+'</span></div>'+
-      (can?'<button class="btn btn-ghost btn-sm" data-action="cj" data-id="'+esc(String(j.id))+'">Cancel</button>':'')+
-      '</div><div class="job-progress"><div class="bar '+bc+'" style="width:'+Math.max(2,j.progress||0)+'%"></div></div>'+
-      '<div class="job-stats"><span>'+(j.items_done||0)+' / '+(j.items_total||0)+'</span><span>'+(j.progress||0)+'%</span></div>'+
-      (j.error_message?'<div class="job-err">'+esc(String(j.error_message))+'</div>':'')+
-      '<div class="job-ts">'+new Date(j.created_at).toLocaleString()+(j.finished_at?' · '+new Date(j.finished_at).toLocaleString():'')+'</div></div>';
-  }).join('');
-}
-$('job-board').addEventListener('click',async e=>{
-  const b=e.target.closest('[data-action="cj"]');if(!b)return;
-  try{await api('POST','/v1/jobs/'+b.dataset.id+':cancel',{});loadJobs();toast('Job cancelled','info')}catch{toast('Failed to cancel','err')}
-});
-function renderCollList(){
-  const c=$('collections-list');
-  if(!S.collections||!S.collections.length){c.innerHTML='<div class="empty-state"><div class="eicon">🗂️</div><strong>No collections</strong><p>Index something to create one</p></div>';return}
-  c.innerHTML=S.collections.map(coll=>
-    '<div class="coll-item"><div class="cl"><div class="cn">'+esc(coll.name)+'</div><div class="cm">'+esc(coll.kind||'')+' · '+(coll.doc_count||0)+' docs · '+esc(coll.status||'')+'</div></div><span class="badge badge-gray cb">'+esc(coll.kind||'')+'</span></div>'
-  ).join('');
-}
-
-/* ═══ Research ══════════════════════════════════════ */
-$('discover-btn').addEventListener('click',discover);
-$('research-input').addEventListener('keydown',e=>{if(e.key==='Enter')discover()});
-$('research-sort').addEventListener('change',function(){if(S.research.papers.length)renderResearch(S.research.papers)});
-async function discover(){
-  const q=$('research-input').value.trim();if(!q)return;
-  S.research.loading=true;S.research.q=q;
-  $('research-results').innerHTML='<div class="loading"><div class="spin"></div>Searching…</div>';
-  const src=[];const lim=parseInt($('research-limit').value)||10;
-  if($('src-arxiv').checked)src.push('arxiv');
-  if($('src-s2').checked)src.push('semantic_scholar');
-  if($('src-openalex').checked)src.push('openalex');
-  try{
-    const d=await api('POST','/research/discover',{q,sources:src,limit_per_source:lim});
-    S.research.loading=false;const pp=d.papers||[];
-    if(!pp.length){$('research-results').innerHTML='<div class="empty-state"><div class="eicon">🔬</div><strong>No papers found</strong><p>Try a different query</p></div>';return}
-    S.research.papers=pp;renderResearch(pp,d.total_found,d.already_indexed);
-  }catch(e){S.research.loading=false;$('research-results').innerHTML='<div class="empty-state"><div class="eicon">⚠️</div><strong>Discover failed</strong><p>'+esc(e.message)+'</p></div>'}
-}
-function renderResearch(papers,totalFound,alreadyIndexed){
-  const sort=$('research-sort').value,sorted=[...papers];
-  if(sort==='year_desc')sorted.sort((a,b)=>(b.year||0)-(a.year||0));
-  else if(sort==='year_asc')sorted.sort((a,b)=>(a.year||9999)-(b.year||9999));
-  else if(sort==='citations_desc')sorted.sort((a,b)=>(b.citation_count||0)-(a.citation_count||0));
-  else if(sort==='citations_asc')sorted.sort((a,b)=>(a.citation_count||9999)-(b.citation_count||9999));
-  let h='<div class="results-meta">Found '+(totalFound||sorted.length)+' papers'+(alreadyIndexed?' ('+alreadyIndexed+' already indexed)':'')+' · sorted by '+sort+'</div>';
-  sorted.forEach((p,i)=>{
-    const au=p.abs_url||p.url||'',pu=p.pdf_url||'';
-    h+='<div class="result-card" data-idx="'+i+'"><div class="top"><div class="info"><div class="title">'+(au?'<a href="'+esc(au)+'" target="_blank">'+esc(p.title)+'</a>':esc(p.title))+'</div>'+
-      '<div style="font-size:12px;color:var(--text-dim)">'+esc(p.authors||'')+'</div>'+
-      '<div class="meta-row" style="margin-top:6px">'+
-      '<span class="badge src">'+esc(p.source||'Unknown')+'</span>'+
-      (p.venue?'<span class="badge author">'+esc(p.venue)+'</span>':'')+
-      (p.year?'<span style="font-size:11px;color:var(--text-muted)">'+p.year+'</span>':'')+
-      (p.citation_count>0?'<span style="font-size:11px;color:var(--text-muted)">Cited: '+p.citation_count+'</span>':'')+
-      '</div></div>'+
-      '<div style="display:flex;gap:4px;flex-shrink:0">'+
-      (au?'<a href="'+esc(au)+'" target="_blank" class="btn btn-sec btn-xs">Abstract</a>':'')+
-      (pu?'<a href="'+esc(pu)+'" target="_blank" class="btn btn-sec btn-xs">PDF</a>':'')+
-      '</div></div>'+
-      (p.summary||p.abstract?'<div class="snippet" style="margin-top:8px">'+esc((p.summary||p.abstract||'').slice(0,300))+'</div>':'')+
-      '<div style="margin-top:10px"><button class="btn btn-pri btn-sm" data-action="ip" data-id="'+esc(p.id||p.paper_id)+'">Index this paper</button></div></div>';
-  });
-  $('research-results').innerHTML=h;
-}
-$('research-results').addEventListener('click',e=>{
-  const b=e.target.closest('[data-action="ip"]');if(!b)return;
-  const id=b.dataset.id,idx=parseInt(b.closest('.result-card')?.dataset.idx,10),title=(idx>=0&&S.research.papers[idx])?S.research.papers[idx].title:id;
-  indexPaper(id,title);
-});
-async function indexPaper(id,title){
-  const coll=prompt('Collection name:','default');if(!coll)return;
-  // Find full paper data in research results so the server gets the complete PaperCard
-  const paper=S.research.papers.find(p=>(p.id||p.paper_id)===id);
-  const papers=paper?[paper]:[{paper_id:id,title:title}];
-  try{
-    await apiStream('/research/index',{paper_ids:[id],papers:papers,collection:coll},ev=>{
-      if(ev.type==='started'){toast('Indexing job created for "'+title+'"','info');loadJobs()}
-      else if(ev.type==='done'){toast('Indexing complete for "'+title+'"','ok');loadJobs()}
-      else if(ev.type==='error'){toast('Indexing failed: '+(ev.error||'unknown'),'err');loadJobs()}
-    });
-  }catch(e){toast('Failed: '+e.message,'err')}
-}
-
-/* ═══ Init ═══════════════════════════════════════════ */
-loadCollections();loadJobs();
-
-})();
-</script>
+<script src="/static/app.js" defer></script>
 </body>
 </html>

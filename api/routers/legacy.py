@@ -13,11 +13,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from core.config import load_config, ROOT
+from core.config import load_config, save_config as _save_config, ROOT
 from core.indexer import run_indexing
 from core.sync_state import SyncState
 from core.hierarchy import HierarchyIndex
-from core.uploads import create_upload_dir, cleanup_upload_dir, extract_zip_safe, sanitize_name
+from core.uploads import create_upload_dir, cleanup_upload_dir, extract_zip_safe, sanitize_name, ZIP_ROOT
 from connectors.website.crawler import WebsiteCrawlerConnector
 from core.chunker import chunk_text
 from core.embedder import embed, embed_query
@@ -58,7 +58,7 @@ def health(store=Depends(get_store)):
 
 
 @router.post("/search")
-def search(req: dict, store=Depends(get_store)):
+def search(req: dict, store=Depends(get_store), research_store=Depends(get_research_store)):
     q = req.get("q", "")
     k = req.get("k", 10)
     source = req.get("source")
@@ -68,30 +68,62 @@ def search(req: dict, store=Depends(get_store)):
     vector_hits = store.search(qvec, k=max(k * 2, 20), source_filter=source, repo_filter=repo)
     fts_hits = store.fts_search(q, k=max(k * 2, 20), source_filter=source, repo_filter=repo)
     fused = rrf_fuse(vector_hits, fts_hits, top_n=k * 2)
+
+    # Also search the research store so indexed papers appear in global search
+    try:
+        if research_store.count() > 0:
+            r_vec = research_store.search(qvec, k=max(k * 2, 20))
+            r_fts = research_store.fts_search(q, k=max(k * 2, 20))
+            for h in r_vec:
+                h.setdefault("source", "research")
+                h.setdefault("repo", h.get("collection", "research"))
+            for h in r_fts:
+                h.setdefault("source", "research")
+                h.setdefault("repo", h.get("collection", "research"))
+            fused = rrf_fuse(fused, r_vec + r_fts, top_n=k * 2)
+    except Exception:
+        pass
+
     reranked = rerank(q, fused, top_k=k) if config.get("search", {}).get("rerank", False) else fused[:k]
 
     return {"results": [
         {
             "title": h.get("title"),
-            "url": h.get("url"),
+            "url": h.get("url") or (h.get("paper_id") and f"/research/catalog?paper_id={h.get('paper_id')}") or "",
             "source": h.get("source"),
             "repo": h.get("repo", ""),
+            "author": h.get("author", ""),
             "snippet": (h.get("text") or "")[:500],
             "summary": h.get("summary", ""),
             "score": h.get("combined_score") or h.get("rerank_score") or h.get("_distance"),
+            "paper_id": h.get("paper_id", ""),
+            "year": h.get("year"),
+            "citation_count": h.get("citation_count"),
         }
         for h in reranked
     ]}
 
 
 @router.post("/chat")
-def chat(req: dict, llm=Depends(get_llm), store=Depends(get_store)):
+def chat(req: dict, llm=Depends(get_llm), store=Depends(get_store), research_store=Depends(get_research_store)):
     q = req.get("q", "")
     k = req.get("k", 8)
     qvec = embed_query(q, model_name=config["embedding"]["model"])
     vector_hits = store.search(qvec, k=max(k * 2, 20))
     fts_hits = store.fts_search(q, k=max(k * 2, 20))
     fused = rrf_fuse(vector_hits, fts_hits, top_n=k * 2)
+
+    # Include research papers in chat context
+    try:
+        if research_store.count() > 0:
+            r_vec = research_store.search(qvec, k=max(k * 2, 20))
+            r_fts = research_store.fts_search(q, k=max(k * 2, 20))
+            for h in r_vec + r_fts:
+                h.setdefault("source", "research")
+            fused = rrf_fuse(fused, r_vec + r_fts, top_n=k * 2)
+    except Exception:
+        pass
+
     reranked = rerank(q, fused, top_k=k)
 
     sources = [
@@ -280,6 +312,46 @@ def list_folders():
     if configured_path:
         folders.insert(0, {"name": Path(configured_path).name or configured_path, "path": configured_path, "type": "configured"})
     return {"folders": folders}
+
+
+@router.post("/uploads/zip")
+async def upload_zip(file: UploadFile = File(...), label: str = Form("upload")):
+    import tempfile
+    suffix = Path(file.filename or "archive.zip").suffix
+    if suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail="only .zip files are accepted")
+
+    tmp = Path(tempfile.mktemp(suffix=".zip"))
+    try:
+        content = await file.read()
+        if len(content) > 200 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="file too large (max 200 MB)")
+        tmp.write_bytes(content)
+
+        out_dir = create_upload_dir(prefix=sanitize_name(label))
+        extracted = extract_zip_safe(tmp, out_dir)
+        return {"path": str(out_dir), "files": len(extracted), "label": label}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        try: tmp.unlink(missing_ok=True)
+        except: pass
+
+
+@router.post("/config")
+def save_config(req: dict):
+    current = load_config()
+    gh = current.setdefault("connectors", {}).setdefault("github_files", {})
+    if "github_repo" in req: gh["repo"] = req["github_repo"]
+    if "github_pat" in req: gh["pat"] = req["github_pat"]
+    if "github_branch" in req: gh["branch"] = req["github_branch"]
+    if "github_mode" in req: gh["mode"] = req["github_mode"]
+    if "github_files_enabled" in req: gh["enabled"] = req["github_files_enabled"]
+    if "repo_path" in req: gh["local_path"] = req["repo_path"]
+    _save_config(current)
+    return {"status": "ok"}
 
 
 @router.get("/hierarchy")

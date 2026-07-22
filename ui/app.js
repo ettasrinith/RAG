@@ -1,704 +1,622 @@
-let currentSource = 'local';
-let selectedPapers = new Map(); // paper_id -> PaperCard
-let discoveredPapers = []; // all papers from last discover
+/* ════════════════════════════════════════════════════════════
+   Knowledge Hub — app.js
+   Targets the live FastAPI monolith (api/server.py).
+   ════════════════════════════════════════════════════════════ */
+'use strict';
 
-// --- Scroll effect for topbar ---
-let lastScrollY = 0;
-window.addEventListener('scroll', () => {
-  const topbar = document.querySelector('.topbar');
-  if (window.scrollY > 10) {
-    topbar.classList.add('scrolled');
-  } else {
-    topbar.classList.remove('scrolled');
+/* ── State ─────────────────────────────────────────────────── */
+const S = {
+  source: 'folder',          // active index source: folder | github | zip
+  zipPath: null,             // extracted path after a ZIP upload
+  selectedPapers: new Map(), // paper_id -> paper
+  discovered: [],            // last discover results
+  streaming: false,          // chat busy flag
+  theme: localStorage.getItem('kh-theme') || 'light',
+};
+
+/* ── DOM helpers ───────────────────────────────────────────── */
+const $  = id => document.getElementById(id);
+const qs = s  => document.querySelector(s);
+const qsa = s => document.querySelectorAll(s);
+
+function esc(s){ const d=document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* escape text then wrap query-term matches in <mark> */
+function hl(text, q){
+  const s = String(text||'');
+  const terms = String(q||'').toLowerCase().split(/\s+/).filter(t=>t.length>1);
+  if(!terms.length) return esc(s);
+  const safe = terms.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  const re = new RegExp('('+safe.join('|')+')','ig');
+  let out='', last=0, m;
+  while((m=re.exec(s))){
+    out += esc(s.slice(last,m.index)) + '<mark>' + esc(m[0]) + '</mark>';
+    last = m.index + m[0].length;
+    if(m[0].length===0) re.lastIndex++;
   }
-  lastScrollY = window.scrollY;
-}, { passive: true });
-
-// --- Keyboard shortcut ---
-document.addEventListener('keydown', e => {
-  if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
-    e.preventDefault();
-    const searchInput = document.getElementById('searchQuery');
-    if (searchInput) { navigate('search'); searchInput.focus(); }
-  }
-  if (e.key === 'Escape') {
-    document.activeElement?.blur();
-  }
-});
-
-// --- Navigation ---
-document.querySelectorAll('.topnav-btn').forEach(btn => {
-  btn.addEventListener('click', () => navigate(btn.dataset.page));
-});
-
-document.querySelectorAll('.source-tab').forEach(tab => {
-  tab.addEventListener('click', () => switchSource(tab.dataset.source));
-});
-
-// Upload zone
-const uploadZone = document.getElementById('uploadZone');
-const zipFile = document.getElementById('zipFile');
-if (uploadZone) {
-  uploadZone.addEventListener('click', () => zipFile.click());
-  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
-  uploadZone.addEventListener('dragleave', () => { uploadZone.classList.remove('dragover'); });
-  uploadZone.addEventListener('drop', e => {
-    e.preventDefault();
-    uploadZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) {
-      zipFile.files = e.dataTransfer.files;
-      uploadZone.querySelector('p').textContent = e.dataTransfer.files[0].name;
-    }
-  });
-  zipFile.addEventListener('change', () => {
-    if (zipFile.files.length) uploadZone.querySelector('p').textContent = zipFile.files[0].name;
-  });
+  return out + esc(s.slice(last));
 }
 
-function navigate(page) {
-  document.querySelectorAll('.topnav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === page));
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const target = document.getElementById(`page-${page}`);
-  target.classList.add('active');
-  // Re-trigger animation by removing and re-adding
-  target.style.animation = 'none';
-  target.offsetHeight; // force reflow
-  target.style.animation = '';
-  if (page === 'search') { loadRepos(); document.getElementById('searchQuery').focus(); }
-  if (page === 'research') loadLibrary();
-  if (page === 'index') loadConfig();
-  if (page === 'chat') document.getElementById('chatInput').focus();
+function toast(title, text='', type=''){
+  const el=document.createElement('div');
+  el.className='toast '+type;
+  el.innerHTML='<strong>'+esc(title)+'</strong>'+(text?'<p>'+esc(text)+'</p>':'');
+  $('toasts').appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),320); }, 3200);
 }
 
-function switchSource(source) {
-  currentSource = source;
-  document.querySelectorAll('.source-tab').forEach(t => t.classList.toggle('active', t.dataset.source === source));
-  document.querySelectorAll('.source-panel').forEach(p => p.classList.remove('active'));
-  const panel = document.getElementById(`panel-${source}`);
-  if (panel) panel.classList.add('active');
+function countUp(el, target, suffix=''){
+  const dur=550, start=performance.now();
+  (function tick(t){
+    const p=Math.min(1,(t-start)/dur), eased=1-Math.pow(1-p,3);
+    el.textContent=Math.round(target*eased)+suffix;
+    if(p<1) requestAnimationFrame(tick);
+  })(start);
 }
 
-// --- API ---
-async function api(path, opts = {}) {
-  const token = (localStorage.getItem('kh_token') || '').trim();
-  const headers = { 'Content-Type': 'application/json', ...(token ? { 'X-API-Key': token } : {}), ...(opts.headers || {}) };
-  const res = await fetch(path, { ...opts, headers });
-  const ct = res.headers.get('content-type') || '';
-  if (!res.ok) {
-    const err = ct.includes('application/json') ? await res.json() : await res.text();
-    throw new Error(err.detail || err.error || 'Request failed');
+/* ── API ───────────────────────────────────────────────────── */
+async function api(path, opts={}){
+  const token=(localStorage.getItem('kh_token')||'').trim();
+  const headers={'Content-Type':'application/json', ...(token?{'X-API-Key':token}:{}), ...(opts.headers||{})};
+  if(opts.body instanceof FormData){ delete headers['Content-Type']; }
+  const res=await fetch(path,{...opts,headers});
+  const ct=res.headers.get('content-type')||'';
+  if(!res.ok){
+    let msg='Request failed';
+    try{ const j=await res.json(); msg=j.detail||j.error||msg; }catch(_){ try{ msg=await res.text()||msg; }catch(_e){} }
+    throw new Error(msg);
   }
-  if (ct.includes('text/event-stream')) return res;
-  if (ct.includes('application/json')) return res.json();
+  if(ct.includes('text/event-stream')) return res;
+  if(ct.includes('application/json')) return res.json();
   return res.text();
 }
 
-// --- Toast ---
-function toast(title, text = '') {
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.innerHTML = `<strong>${esc(title)}</strong>${text ? `<p>${esc(text)}</p>` : ''}`;
-  document.getElementById('toasts').appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }, 3000);
+/* stream SSE from a POST endpoint, calling onEvent per `data:` frame */
+async function apiStream(path, body, onEvent){
+  const token=(localStorage.getItem('kh_token')||'').trim();
+  const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...(token?{'X-API-Key':token}:{})},body:JSON.stringify(body)});
+  const ct=res.headers.get('content-type')||'';
+  if(!ct.includes('text/event-stream')){
+    let j={}; try{ j=await res.json(); }catch(_){}
+    throw new Error(j.error||j.detail||'Could not start stream');
+  }
+  const rd=res.body.getReader(), dec=new TextDecoder(); let buf='';
+  while(true){
+    const {done,value}=await rd.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n'); buf=lines.pop()||'';
+    for(const l of lines){
+      if(!l.startsWith('data: ')) continue;
+      try{ onEvent(JSON.parse(l.slice(6))); }catch(_){}
+    }
+  }
 }
 
-// --- Status ---
-async function pollStatus() {
-  try {
-    const s = await api('/sync/status');
-    const dot = document.getElementById('statusDot');
-    const txt = document.getElementById('statusText');
-    const badge = document.getElementById('progressBadge');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    if (s.indexing) {
-      dot.className = 'status-dot indexing';
-      txt.textContent = 'Indexing...';
-      if (badge) { badge.textContent = 'Running'; badge.className = 'badge active'; }
-      if (startBtn) startBtn.disabled = true;
-      if (stopBtn) stopBtn.disabled = false;
-    } else {
-      dot.className = 'status-dot';
-      txt.textContent = 'Ready';
-      if (badge) { badge.textContent = 'Idle'; badge.className = 'badge'; }
-      if (startBtn) startBtn.disabled = false;
-      if (stopBtn) stopBtn.disabled = true;
-    }
-  } catch (_) {}
+/* ── Theme ─────────────────────────────────────────────────── */
+function applyTheme(){
+  document.documentElement.classList.toggle('dark', S.theme==='dark');
+  $('theme-btn').textContent = S.theme==='dark' ? '☀️' : '🌙';
+}
+applyTheme();
+$('theme-btn').addEventListener('click',()=>{
+  S.theme = S.theme==='dark' ? 'light' : 'dark';
+  localStorage.setItem('kh-theme', S.theme);
+  applyTheme();
+});
+
+/* ── Topbar scroll + keyboard ──────────────────────────────── */
+window.addEventListener('scroll',()=>{ $('nav').classList.toggle('scrolled', window.scrollY>10); },{passive:true});
+document.addEventListener('keydown',e=>{
+  if(e.key==='/' && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)){
+    e.preventDefault(); navigate('search'); $('search-query').focus();
+  }
+  if(e.key==='Escape' && document.activeElement) document.activeElement.blur();
+});
+
+/* ── Navigation ────────────────────────────────────────────── */
+function navigate(page){
+  qsa('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.section===page));
+  qsa('.section').forEach(s=>s.classList.remove('active'));
+  const t=$('section-'+page); if(t) t.classList.add('active');
+  if(page==='search'){ loadRepos(); $('search-query').focus(); }
+  if(page==='chat') $('chat-input').focus();
+  if(page==='index') pollStatus();
+  if(page==='research'){ loadCollectionPicker(); loadLibrary(); }
+}
+qsa('.nav-item').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.section)));
+
+/* ── Status polling ────────────────────────────────────────── */
+async function pollStatus(){
+  try{
+    const s=await api('/sync/status');
+    const dot=$('status-dot'), txt=$('status-text');
+    if(s.indexing){ dot.classList.add('indexing'); txt.textContent='Indexing…'; $('start-btn').disabled=true; $('stop-btn').disabled=false; }
+    else{ dot.classList.remove('indexing'); txt.textContent='Ready'; $('start-btn').disabled=false; $('stop-btn').disabled=true; }
+  }catch(_){}
 }
 setInterval(pollStatus, 3000);
-pollStatus();
 
-// --- Index ---
-function switchSourcePanel(source) {
-  currentSource = source;
-  document.querySelectorAll('.source-tab').forEach(t => t.classList.toggle('active', t.dataset.source === source));
-  document.querySelectorAll('.source-panel').forEach(p => p.classList.remove('active'));
-  const panel = document.getElementById(`panel-${source}`);
-  if (panel) panel.classList.add('active');
-}
+/* ── Search ────────────────────────────────────────────────── */
+const SOURCE_LABELS=[
+  ['github_files','Files'],['github_commits','Commits'],['website','Website'],
+  ['arxiv','arXiv'],['youtube','YouTube'],['documents','Documents'],
+];
+(function initSourceSelect(){
+  const sel=$('search-source');
+  SOURCE_LABELS.forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; sel.appendChild(o); });
+})();
 
-async function loadConfig() {
-  try {
-    const [cfg, status] = await Promise.all([api('/config'), api('/sync/status')]);
-    const gh = cfg.github || {};
-    document.getElementById('repoPath').value = cfg.repo_path || gh.local_path || '';
-    document.getElementById('githubRepo').value = gh.repo || '';
-    document.getElementById('githubPat').value = gh.pat || '';
-    document.getElementById('githubBranch').value = gh.branch || '';
-    const w = cfg.website || {};
-    document.getElementById('websiteStartUrls').value = (w.start_urls || []).join('\n');
-    document.getElementById('websiteMaxPages').value = w.max_pages ?? 150;
-    document.getElementById('websiteMaxDepth').value = w.max_depth ?? 2;
-    document.getElementById('websiteSameDomainOnly').checked = w.same_domain_only !== false;
-    const a = cfg.arxiv || {};
-    document.getElementById('arxivQuery').value = a.query || '';
-    document.getElementById('arxivMaxResults').value = a.max_results ?? 50;
-    document.getElementById('arxivIds').value = [...(a.ids || []), ...(a.urls || [])].join('\n');
-    const y = cfg.youtube || {};
-    document.getElementById('youtubeUrls').value = [...(y.urls || []), ...(y.video_ids || [])].join('\n');
-    switchSourcePanel(gh.mode || 'local');
-  } catch (e) { toast('Failed to load config', e.message); }
-}
-
-async function browseFolders() {
-  const list = document.getElementById('folderList');
-  if (list.classList.contains('open')) { list.classList.remove('open'); return; }
-  list.classList.add('open');
-  list.innerHTML = '<div class="folder-item">Scanning...</div>';
-  try {
-    const { folders } = await api('/folders');
-    if (!folders.length) { list.innerHTML = '<div class="folder-item">No git folders found.</div>'; return; }
-    list.innerHTML = folders.map(f => `
-      <div class="folder-item" data-path="${escAttr(f.path)}">
-        <strong>${esc(f.name)}</strong>
-        <span>${esc(f.path)}</span>
-      </div>`).join('');
-    list.querySelectorAll('.folder-item').forEach(item => {
-      item.addEventListener('click', () => {
-        document.getElementById('repoPath').value = item.dataset.path;
-        list.classList.remove('open');
-      });
+async function loadRepos(){
+  try{
+    const {repos, counts}=await api('/repos');
+    const sel=$('search-repo');
+    sel.innerHTML='<option value="">All repos</option>';
+    (repos||[]).forEach(r=>{
+      const o=document.createElement('option'); o.value=r;
+      o.textContent = r + (counts&&counts[r]!=null ? ' ('+counts[r]+')' : '');
+      sel.appendChild(o);
     });
-  } catch (e) { list.innerHTML = `<div class="folder-item">${esc(e.message)}</div>`; }
+  }catch(_){}
 }
 
-async function saveSourceConfig() {
-  const body = {
-    repo_path: document.getElementById('repoPath').value || null,
-    github_mode: currentSource,
-    github_repo: document.getElementById('githubRepo').value || null,
-    github_pat: document.getElementById('githubPat').value || null,
-    github_branch: document.getElementById('githubBranch').value || null,
-    github_files_enabled: currentSource === 'local' || currentSource === 'github',
-    website_start_urls: splitLines(document.getElementById('websiteStartUrls').value),
-    website_max_pages: intVal('websiteMaxPages', 150),
-    website_max_depth: intVal('websiteMaxDepth', 2),
-    website_same_domain_only: document.getElementById('websiteSameDomainOnly').checked,
-    arxiv_query: document.getElementById('arxivQuery').value.trim() || null,
-    arxiv_max_results: intVal('arxivMaxResults', 50),
-    arxiv_ids: splitLines(document.getElementById('arxivIds').value),
-    youtube_urls: splitLines(document.getElementById('youtubeUrls').value),
-  };
-  try {
-    await api('/config', { method: 'POST', body: JSON.stringify(body) });
-    toast('Saved');
-  } catch (e) { toast('Save failed', e.message); }
+function showSkeleton(host){
+  host.innerHTML=Array(4).fill('<div class="skeleton-card"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div>').join('');
 }
 
-async function startIndexing() {
-  const path = document.getElementById('repoPath').value.trim();
-  if (currentSource === 'local' && !path) { toast('Path required', 'Enter a folder path first.'); return; }
-  await saveSourceConfig();
-  const card = document.getElementById('progressCard');
-  card.classList.remove('hidden');
-  document.getElementById('progressLog').innerHTML = '';
-  setProgress(4, 'Starting...');
-  addLog('Indexing started');
-  try {
-    const res = await api('/sync/start', {
-      method: 'POST',
-      body: JSON.stringify({ repo_path: currentSource === 'local' ? path : '', force_full: document.getElementById('forceFull').checked }),
-    });
-    if (!(res instanceof Response) || !res.body) throw new Error('Could not start');
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop() || '';
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        let ev;
-        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
-        if (ev.type === 'doc_indexed') {
-          const p = Math.min(90, 20 + (ev.total_docs || 0) * 2);
-          setProgress(p, `${ev.total_docs || 0} docs, ${ev.total_chunks || 0} chunks`);
-        }
-        if (ev.type === 'connector_done') addLog(`Done: ${ev.key} (${ev.docs || 0} docs)`, 'success');
-        if (ev.type === 'error') { addLog(`Error: ${ev.error}`, 'error'); toast('Indexing failed', ev.error); }
-        if (ev.type === 'done' || ev.type === 'cancelled') {
-          setProgress(100, ev.cancelled ? 'Cancelled' : 'Completed');
-          addLog(ev.cancelled ? 'Cancelled' : 'Completed', 'success');
-          pollStatus();
-        }
-      }
-    }
-  } catch (e) { addLog(`Failed: ${e.message}`, 'error'); toast('Indexing failed', e.message); }
+function activeFilterChips(){
+  const src=$('search-source').value, repo=$('search-repo').value;
+  const strip=$('filter-strip');
+  let h='';
+  if(src) h+='<span class="filter-chip">Source: '+esc((SOURCE_LABELS.find(x=>x[0]===src)||[])[1]||src)+'<span class="rm" data-clear="source">×</span></span>';
+  if(repo) h+='<span class="filter-chip">Repo: '+esc(repo)+'<span class="rm" data-clear="repo">×</span></span>';
+  strip.innerHTML=h;
 }
+$('filter-strip').addEventListener('click',e=>{
+  const rm=e.target.closest('.rm'); if(!rm) return;
+  if(rm.dataset.clear==='source') $('search-source').value='';
+  if(rm.dataset.clear==='repo') $('search-repo').value='';
+  doSearch();
+});
 
-async function stopIndexing() {
-  try { await api('/sync/stop', { method: 'POST' }); addLog('Stop requested'); }
-  catch (e) { toast('Stop failed', e.message); }
-}
-
-function setProgress(pct, label) {
-  document.getElementById('progressFill').style.width = `${Math.min(100, Math.max(0, pct))}%`;
-  document.getElementById('progressPercent').textContent = `${Math.round(pct)}%`;
-  if (label) document.getElementById('progressLabel').textContent = label;
-}
-
-function addLog(text, type = '') {
-  const log = document.getElementById('progressLog');
-  const el = document.createElement('div');
-  el.className = `log-entry ${type}`;
-  el.textContent = text;
-  log.appendChild(el);
-  log.scrollTop = log.scrollHeight;
-}
-
-// --- Search ---
-async function loadRepos() {
-  try {
-    const { repos } = await api('/repos');
-    const sel = document.getElementById('searchRepo');
-    sel.innerHTML = '<option value="">All sources</option>';
-    (repos || []).forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = r;
-      opt.textContent = r;
-      sel.appendChild(opt);
-    });
-  } catch (_) {}
-}
-
-function showSearchSkeleton(host) {
-  host.innerHTML = Array(4).fill('').map(() => `
-    <div class="skeleton-card">
-      <div class="skeleton-line"></div>
-      <div class="skeleton-line"></div>
-      <div class="skeleton-line"></div>
-      <div class="skeleton-line"></div>
-    </div>`).join('');
-}
-
-async function doSearch(e) {
-  e.preventDefault();
-  const q = document.getElementById('searchQuery').value.trim();
-  if (!q) return false;
-  const host = document.getElementById('searchResults');
-  document.getElementById('searchBtn').disabled = true;
-  showSearchSkeleton(host);
-  try {
-    const result = await api('/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        q, k: 10,
-        hybrid: document.getElementById('searchHybrid').checked,
-        repo: document.getElementById('searchRepo').value || null,
-        source: document.getElementById('searchSource').value || null,
-      }),
-    });
-    const hits = result.results || [];
-    if (!hits.length) {
-      host.innerHTML = '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><strong>No results found</strong>Try a different query or adjust filters.</div>';
-      return false;
-    }
-    const countHtml = `<div class="result-count">${hits.length} result${hits.length !== 1 ? 's' : ''} for "${esc(q)}"</div>`;
-    const cardsHtml = hits.map((h, i) => {
-      const fileUrl = h.url || (h.title ? `/file?path=${encodeURIComponent(h.title)}` : '');
-      const sourceLabel = (h.source || '').replace('github_files', 'file').replace('github_commits', 'commit');
-      const delay = i * 60;
-      return `
-      <div class="result-card" ${fileUrl ? `onclick="window.open('${escAttr(fileUrl)}', '_blank')"` : ''} style="animation-delay:${delay}ms${fileUrl ? ';cursor:pointer' : ''}">
-        <div class="title">${esc(h.title || `Result ${i + 1}`)}</div>
-        <div class="meta">
-          ${h.repo ? `<span class="pill">${esc(h.repo)}</span>` : ''}
-          ${sourceLabel ? `<span class="pill">${esc(sourceLabel)}</span>` : ''}
-          ${h.score != null ? `<span class="pill score">${Number(h.score).toFixed(3)}</span>` : ''}
-        </div>
-        <div class="snippet">${esc((h.snippet || '').slice(0, 400))}</div>
-        ${h.url ? `<div class="path-label">${esc(h.url)}</div>` : ''}
-      </div>`;
-    }).join('');
-    host.innerHTML = countHtml + cardsHtml;
-  } catch (e) {
-    host.innerHTML = `<div class="empty-state"><strong>Search failed</strong>${esc(e.message)}</div>`;
-  } finally {
-    document.getElementById('searchBtn').disabled = false;
+async function doSearch(){
+  const q=$('search-query').value.trim();
+  const host=$('search-results');
+  activeFilterChips();
+  if(!q){
+    host.innerHTML='<div class="empty-state"><span class="eicon">🔍</span><strong>Start with a query</strong><p>Your indexed knowledge is one search away. Press <b>/</b> to focus.</p></div>';
+    $('facets').innerHTML='';
+    return;
   }
-  return false;
+  showSkeleton(host);
+  try{
+    const d=await api('/search',{method:'POST',body:JSON.stringify({
+      q, k:12,
+      hybrid:$('search-hybrid').checked,
+      source:$('search-source').value||null,
+      repo:$('search-repo').value||null,
+    })});
+    renderSearch(q, d.results||[]);
+  }catch(e){
+    host.innerHTML='<div class="empty-state"><span class="eicon">⚠️</span><strong>Search failed</strong><p>'+esc(e.message)+'</p></div>';
+  }
 }
 
-// --- Chat ---
-async function sendChat(e) {
-  e.preventDefault();
-  const input = document.getElementById('chatInput');
-  const text = input.value.trim();
-  if (!text) return false;
-  addChatMsg('user', esc(text));
-  input.value = '';
-  document.getElementById('chatBtn').disabled = true;
-  const wrapper = addChatMsg('assistant', '<span class="typing"><span></span><span></span><span></span></span>');
-  const bubble = wrapper.querySelector('.bubble');
-  let sources = [];
-  let started = false;
-  try {
-    const res = await api('/chat', { method: 'POST', body: JSON.stringify({ q: text, k: 8, scope: document.getElementById('chatScope')?.value || null }) });
-    if (!(res instanceof Response) || !res.body) throw new Error('No response');
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop() || '';
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        let payload;
-        try { payload = JSON.parse(line.slice(6)); } catch { continue; }
-        if (payload.type === 'sources') sources = payload.sources || [];
-        if (payload.type === 'error') { bubble.textContent = `Error: ${payload.error}`; break; }
-        if (payload.type === 'token') {
-          if (!started) { bubble.textContent = ''; started = true; }
-          bubble.textContent += payload.text;
-          scrollChat();
-        }
-        if (payload.type === 'done' && sources.length) {
-          const links = document.createElement('div');
-          links.className = 'source-links';
-          sources.forEach((s, i) => {
-            const a = document.createElement('a');
-            a.href = s.url || (s.title ? `/file?path=${encodeURIComponent(s.title)}` : '#');
-            a.target = '_blank';
-            a.textContent = `[${i + 1}] ${s.title || s.repo || 'Source'}`;
-            links.appendChild(a);
-          });
-          wrapper.appendChild(links);
-        }
-      }
-    }
-  } catch (e) { bubble.textContent = `Error: ${e.message}`; }
-  finally { document.getElementById('chatBtn').disabled = false; input.focus(); }
-  return false;
+function renderSearch(q, hits){
+  const host=$('search-results');
+  if(!hits.length){
+    host.innerHTML='<div class="empty-state"><span class="eicon">🔎</span><strong>No results</strong><p>Try a different query, or clear the source / repo filters.</p></div>';
+    return;
+  }
+  const meta=document.createElement('div');
+  meta.className='results-meta';
+  meta.innerHTML='≈ <span class="n" id="result-count">0</span>&nbsp;results for "'+esc(q)+'"';
+  const cards=hits.map((h,i)=>{
+    const url=h.url||(h.title?'/file?path='+encodeURIComponent(h.title):'');
+    const src=(h.source||'').replace('github_files','file').replace('github_commits','commit');
+    const score=h.score!=null && isFinite(h.score) ? '<span class="score">'+Number(h.score).toFixed(3)+'</span>' : '';
+    return '<article class="result-card" style="animation-delay:'+(i*55)+'ms"'+(url?' data-url="'+escAttr(url)+'"':'')+'>'+
+      '<div class="top"><div><div class="title">'+(url?'<a href="'+escAttr(url)+'" target="_blank" rel="noopener">'+esc(h.title||'Untitled')+'</a>':esc(h.title||'Untitled'))+'</div>'+
+      '<div class="meta-row">'+(src?'<span class="badge src">'+esc(src)+'</span>':'')+(h.repo?'<span class="badge">'+esc(h.repo)+'</span>':'')+(h.author?'<span class="badge author">'+esc(h.author)+'</span>':'')+'</div></div>'+score+'</div>'+
+      '<div class="snippet">'+hl(h.snippet,q)+'</div>'+
+      (h.summary?'<div class="tldr"><strong>Summary: </strong>'+esc(h.summary)+'</div>':'')+
+      '</article>';
+  }).join('');
+  host.innerHTML=''; host.appendChild(meta); host.insertAdjacentHTML('beforeend', cards);
+  countUp($('result-count'), hits.length);
 }
 
-function addChatMsg(role, content) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.innerHTML = `<div class="bubble">${content}</div>`;
-  document.getElementById('chatMessages').appendChild(div);
+/* clicking a card (not its link) opens it */
+$('search-results').addEventListener('click',e=>{
+  if(e.target.closest('a')) return;
+  const card=e.target.closest('.result-card'); if(card&&card.dataset.url) window.open(card.dataset.url,'_blank');
+});
+
+let searchTimer=null;
+$('search-query').addEventListener('input',()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(doSearch,280); });
+$('search-form').addEventListener('submit',e=>{ e.preventDefault(); doSearch(); });
+$('search-source').addEventListener('change',doSearch);
+$('search-repo').addEventListener('change',doSearch);
+$('search-hybrid').addEventListener('change',doSearch);
+
+/* ── Chat ──────────────────────────────────────────────────── */
+function addMsg(role, html){
+  const div=document.createElement('div');
+  div.className='msg '+role;
+  div.innerHTML=html;
+  $('chat-messages').appendChild(div);
   scrollChat();
   return div;
 }
+function scrollChat(){ const el=$('chat-messages'); el.scrollTop=el.scrollHeight; }
 
-function toggleChatScope() {
-  const toggle = document.getElementById('chatScopeToggle');
-  const scope = document.getElementById('chatScope');
-  const label = document.getElementById('chatScopeLabel');
-  if (toggle.checked) {
-    scope.value = 'research';
-    label.textContent = 'Ask about research papers';
-  } else {
-    scope.value = 'main';
-    label.textContent = 'Ask about my papers';
-  }
-}
-
-function scrollChat() {
-  const el = document.getElementById('chatMessages');
-  el.scrollTop = el.scrollHeight;
-}
-
-// --- Research ---
-async function doDiscover(e) {
-  e.preventDefault();
-  const q = document.getElementById('discoverQuery').value.trim();
-  if (!q) return false;
-
-  const sources = [];
-  if (document.getElementById('srcArxiv').checked) sources.push('arxiv');
-  if (document.getElementById('srcS2').checked) sources.push('semantic_scholar');
-  if (document.getElementById('srcOA').checked) sources.push('openalex');
-
-  if (!sources.length) { toast('No sources', 'Select at least one source.'); return false; }
-
-  const limit = parseInt(document.getElementById('discoverLimit').value, 10);
-  const host = document.getElementById('discoverResults');
-  const status = document.getElementById('discoverStatus');
-  const actions = document.getElementById('discoverActions');
-
-  document.getElementById('discoverBtn').disabled = true;
-  status.textContent = `Searching ${sources.join(', ')}...`;
-  status.classList.remove('hidden');
-  host.innerHTML = '';
-  actions.classList.add('hidden');
-  selectedPapers.clear();
-  updateSelectedCount();
-
-  try {
-    const result = await api('/research/discover', {
-      method: 'POST',
-      body: JSON.stringify({ q, sources, limit_per_source: limit }),
+async function sendChat(){
+  const inp=$('chat-input'), q=inp.value.trim();
+  if(!q||S.streaming) return;
+  inp.value=''; S.streaming=true; $('chat-btn').disabled=true;
+  const emp=$('chat-messages').querySelector('.empty-state'); if(emp) emp.remove();
+  addMsg('user', esc(q));
+  const a=addMsg('assist','<span class="typing"><span></span><span></span><span></span></span>');
+  let content='', sources=[], started=false;
+  try{
+    await apiStream('/chat',{q,k:8,scope:$('chat-scope').value},ev=>{
+      if(ev.type==='sources') sources=ev.sources||[];
+      else if(ev.type==='token'){
+        if(!started){ a.innerHTML=''; started=true; }
+        content+=ev.text;
+        a.innerHTML='<div>'+esc(content)+'</div>';
+        scrollChat();
+      }
+      else if(ev.type==='done'){
+        if(sources.length){
+          a.insertAdjacentHTML('beforeend','<div class="sources"><strong>Sources</strong>'+
+            sources.map((s,i)=>'<a href="'+escAttr(s.url||('/file?path='+encodeURIComponent(s.title||'')))+'" target="_blank" rel="noopener">['+(i+1)+'] '+esc(s.title||s.repo||'Source')+'</a>').join('')+'</div>');
+        }
+        S.streaming=false;
+      }
+      else if(ev.type==='error'){ a.innerHTML='<div>Error: '+esc(ev.error||'unknown')+'</div>'; S.streaming=false; }
     });
+  }catch(e){ a.innerHTML='<div>Error: '+esc(e.message)+'</div>'; }
+  finally{ S.streaming=false; $('chat-btn').disabled=false; inp.focus(); scrollChat(); }
+}
+$('chat-btn').addEventListener('click',sendChat);
+$('chat-input').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
 
-    discoveredPapers = result.papers || [];
-    const totalFound = result.total_found || 0;
-    const alreadyIdx = result.already_indexed || 0;
-    status.textContent = `Found ${totalFound} papers (${alreadyIdx} already indexed)`;
+/* ── Index: source cards + panels ──────────────────────────── */
+qsa('.source-card').forEach(c=>{
+  const activate=()=>{
+    qsa('.source-card').forEach(x=>x.classList.remove('selected'));
+    c.classList.add('selected');
+    S.source=c.dataset.source;
+    qsa('.cfg-panel').forEach(p=>p.classList.remove('open'));
+    const p=$('panel-'+S.source); if(p) p.classList.add('open');
+  };
+  c.addEventListener('click',activate);
+  c.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); activate(); } });
+});
+/* open folder panel by default */
+var _fc=qs('.source-card[data-source="folder"]'); if(_fc) _fc.click();
 
-    if (!discoveredPapers.length) {
-      host.innerHTML = '<div class="empty-state"><strong>No papers found</strong>Try a different query or adjust sources.</div>';
-      return false;
-    }
+/* folder browser */
+$('folder-browse').addEventListener('click',async()=>{
+  const list=$('folder-list');
+  if(list.classList.contains('open')){ list.classList.remove('open'); return; }
+  list.classList.add('open');
+  list.innerHTML='<div class="folder-item"><strong>Scanning…</strong></div>';
+  try{
+    const {folders}=await api('/folders');
+    if(!folders||!folders.length){ list.innerHTML='<div class="folder-item"><strong>No git folders found</strong></div>'; return; }
+    list.innerHTML=folders.map(f=>'<div class="folder-item" data-path="'+escAttr(f.path)+'"><strong>'+esc(f.name)+'</strong><span>'+esc(f.path)+'</span></div>').join('');
+  }catch(e){ list.innerHTML='<div class="folder-item"><strong>'+esc(e.message)+'</strong></div>'; }
+});
+$('folder-list').addEventListener('click',e=>{
+  const item=e.target.closest('.folder-item'); if(!item||!item.dataset.path) return;
+  $('folder-path').value=item.dataset.path;
+  $('folder-list').classList.remove('open');
+});
 
-    renderPaperCards(discoveredPapers, host, false);
-    actions.classList.remove('hidden');
-    loadCollectionPicker();
-  } catch (err) {
-    host.innerHTML = `<div class="empty-state"><strong>Discover failed</strong>${esc(err.message)}</div>`;
-  } finally {
-    document.getElementById('discoverBtn').disabled = false;
+/* zip upload */
+const uz=$('upload-zone'), zf=$('zip-file');
+uz.addEventListener('click',()=>zf.click());
+uz.addEventListener('dragover',e=>{ e.preventDefault(); uz.classList.add('dragover'); });
+uz.addEventListener('dragleave',()=>uz.classList.remove('dragover'));
+uz.addEventListener('drop',e=>{ e.preventDefault(); uz.classList.remove('dragover'); if(e.dataTransfer.files.length) uploadZip(e.dataTransfer.files[0]); });
+zf.addEventListener('change',()=>{ if(zf.files.length) uploadZip(zf.files[0]); });
+
+async function uploadZip(file){
+  if(!/\.zip$/i.test(file.name)){ toast('Not a ZIP','Please choose a .zip file.','err'); return; }
+  $('file-list').innerHTML='<div class="file-item"><span class="name">⏳ Uploading '+esc(file.name)+'…</span></div>';
+  try{
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('label',file.name.replace(/\.zip$/i,''));
+    const token=(localStorage.getItem('kh_token')||'').trim();
+    const res=await fetch('/uploads/zip',{method:'POST',headers:token?{'X-API-Key':token}:{},body:fd});
+    const j=await res.json();
+    if(!res.ok) throw new Error(j.detail||'Upload failed');
+    S.zipPath=j.path;
+    $('file-list').innerHTML='<div class="file-item"><span class="name">📦 '+esc(file.name)+'</span><span class="size">'+j.files+' files extracted</span><span class="rm" id="zip-clear">×</span></div>';
+    toast('Uploaded','Extracted '+j.files+' files — ready to index.','info');
+  }catch(e){
+    S.zipPath=null;
+    $('file-list').innerHTML='';
+    toast('Upload failed',e.message,'err');
   }
-  return false;
+}
+$('file-list').addEventListener('click',e=>{
+  if(e.target.id==='zip-clear'){ S.zipPath=null; $('file-list').innerHTML=''; zf.value=''; }
+});
+
+/* config save + indexing */
+async function saveGithubConfig(){
+  await api('/config',{method:'POST',body:JSON.stringify({
+    github_mode:'github',
+    github_repo:$('github-repo').value.trim()||null,
+    github_pat:$('github-pat').value.trim()||null,
+    github_branch:$('github-branch').value.trim()||null,
+    github_files_enabled:true,
+  })});
 }
 
-function renderPaperCards(papers, container, isLibrary) {
-  container.innerHTML = papers.map((p, i) => {
-    const delay = i * 50;
-    const sourceBadge = p.source ? `<span class="pill source-badge source-${esc(p.source)}">${esc(p.source)}</span>` : '';
-    const yearBadge = p.year ? `<span class="pill">${esc(String(p.year))}</span>` : '';
-    const citations = p.citation_count != null ? `<span class="pill score">${esc(String(p.citation_count))} cites</span>` : '';
-    const venueBadge = p.venue ? `<span class="pill">${esc(p.venue.slice(0, 40))}</span>` : '';
-    const indexedBadge = p.already_indexed ? '<span class="pill indexed-badge">Indexed</span>' : '';
-    const checkbox = !isLibrary && !p.already_indexed
-      ? `<label class="paper-select"><input type="checkbox" data-idx="${i}" onchange="togglePaperSelect(this, ${i})"><span class="toggle-slider"></span></label>`
-      : '';
-    const deleteBtn = isLibrary
-      ? `<button class="btn danger btn-sm" onclick="deletePaper('${escAttr(p.paper_id)}')">Remove</button>`
-      : '';
-    const link = p.abs_url || p.pdf_url || '';
+function setProgress(pct,label){
+  $('progress-fill').style.width=Math.min(100,Math.max(0,pct))+'%';
+  $('progress-percent').textContent=Math.round(pct)+'%';
+  if(label) $('progress-label').textContent=label;
+}
+function addLog(text,type=''){
+  const log=$('progress-log');
+  const el=document.createElement('div');
+  el.className='log-entry '+type;
+  el.textContent=text;
+  log.appendChild(el);
+  log.scrollTop=log.scrollHeight;
+}
 
-    return `
-      <div class="paper-card" data-idx="${i}" style="animation-delay:${delay}ms">
-        <div class="paper-card-top">
-          ${checkbox}
-          <div class="paper-card-title">${link ? `<a href="${escAttr(link)}" target="_blank">${esc(p.title)}</a>` : esc(p.title)}</div>
-          ${deleteBtn}
-        </div>
-        <div class="paper-card-meta">
-          ${sourceBadge} ${yearBadge} ${citations} ${venueBadge} ${indexedBadge}
-          ${p.authors && p.authors.length ? `<span class="pill">${esc(p.authors.slice(0, 3).join(', '))}${p.authors.length > 3 ? ' et al.' : ''}</span>` : ''}
-        </div>
-        <div class="paper-card-abstract">${esc((p.abstract || '').slice(0, 300))}${(p.abstract || '').length > 300 ? '...' : ''}</div>
-      </div>`;
+async function startIndexing(){
+  let repoPath='';
+  if(S.source==='folder'){
+    repoPath=$('folder-path').value.trim();
+    if(!repoPath){ toast('Path required','Enter or browse to a folder first.','err'); return; }
+  }else if(S.source==='github'){
+    if(!$('github-repo').value.trim()){ toast('Repo required','Enter owner/repo first.','err'); return; }
+    try{ await saveGithubConfig(); }catch(e){ toast('Config save failed',e.message,'err'); return; }
+  }else if(S.source==='zip'){
+    if(!S.zipPath){ toast('Upload first','Drop a ZIP to extract it, then index.','err'); return; }
+    repoPath=S.zipPath;
+  }
+
+  $('progress-card').classList.remove('hide');
+  $('progress-log').innerHTML='';
+  setProgress(4,'Starting…');
+  addLog('Indexing started');
+  $('start-btn').disabled=true; $('stop-btn').disabled=false;
+
+  try{
+    await apiStream('/sync/start',{repo_path:repoPath,force_full:$('force-full').checked},ev=>{
+      if(ev.type==='doc_indexed'){
+        setProgress(Math.min(90,20+(ev.total_docs||0)*2),(ev.total_docs||0)+' docs · '+(ev.total_chunks||0)+' chunks');
+      }
+      else if(ev.type==='connector_done') addLog('Done: '+ev.key+' ('+(ev.docs||0)+' docs)','success');
+      else if(ev.type==='error'){ addLog('Error: '+ev.error,'error'); toast('Indexing failed',ev.error,'err'); }
+      else if(ev.type==='done'||ev.type==='cancelled'){
+        setProgress(100, ev.cancelled?'Cancelled':'Completed');
+        addLog(ev.cancelled?'Cancelled':'Completed','success');
+        toast(ev.cancelled?'Indexing cancelled':'Indexing complete','','info');
+        pollStatus();
+      }
+    });
+  }catch(e){
+    addLog('Failed: '+e.message,'error');
+    toast('Indexing failed',e.message,'err');
+  }finally{
+    pollStatus();
+  }
+}
+$('start-btn').addEventListener('click',startIndexing);
+$('stop-btn').addEventListener('click',async()=>{
+  try{ await api('/sync/stop',{method:'POST'}); addLog('Stop requested…'); }
+  catch(e){ toast('Stop failed',e.message,'err'); }
+});
+
+/* ── Research: discover ────────────────────────────────────── */
+function authorsStr(p){
+  if(Array.isArray(p.authors)) return p.authors.slice(0,3).join(', ')+(p.authors.length>3?' et al.':'');
+  return p.authors||p.author||'';
+}
+
+$('discover-form').addEventListener('submit',e=>{ e.preventDefault(); doDiscover(); });
+
+async function doDiscover(){
+  const q=$('discover-query').value.trim();
+  if(!q) return;
+  const sources=[];
+  if($('src-arxiv').checked) sources.push('arxiv');
+  if($('src-s2').checked) sources.push('semantic_scholar');
+  if($('src-oa').checked) sources.push('openalex');
+  if(!sources.length){ toast('No sources','Select at least one source.','err'); return; }
+
+  const host=$('discover-results'), status=$('discover-status');
+  $('discover-btn').disabled=true;
+  status.style.display='flex'; status.innerHTML='<span class="spin" style="width:14px;height:14px"></span> Searching '+sources.join(', ')+'…';
+  host.innerHTML=''; $('select-bar').classList.add('hide');
+  S.selectedPapers.clear(); updateSelectedCount();
+
+  try{
+    const d=await api('/research/discover',{method:'POST',body:JSON.stringify({q,sources,limit_per_source:parseInt($('discover-limit').value,10)||10})});
+    S.discovered=d.papers||[];
+    status.innerHTML='Found <span class="n">'+(d.total_found||S.discovered.length)+'</span> papers'+(d.already_indexed?' ('+d.already_indexed+' already indexed)':'');
+    if(!S.discovered.length){
+      host.innerHTML='<div class="empty-state"><span class="eicon">🔬</span><strong>No papers found</strong><p>Try a different query or enable more sources.</p></div>';
+      return;
+    }
+    renderPapers(sortPapers(S.discovered), host, false, q);
+    $('select-bar').classList.remove('hide');
+    loadCollectionPicker();
+  }catch(e){
+    status.style.display='none';
+    host.innerHTML='<div class="empty-state"><span class="eicon">⚠️</span><strong>Discover failed</strong><p>'+esc(e.message)+'</p></div>';
+  }finally{
+    $('discover-btn').disabled=false;
+  }
+}
+
+function sortPapers(list){
+  const mode=$('discover-sort').value;
+  const a=[...list];
+  if(mode==='year_desc') a.sort((x,y)=>(y.year||0)-(x.year||0));
+  else if(mode==='year_asc') a.sort((x,y)=>(x.year||9999)-(y.year||9999));
+  else if(mode==='citations_desc') a.sort((x,y)=>(y.citation_count||0)-(x.citation_count||0));
+  return a;
+}
+$('discover-sort').addEventListener('change',()=>{
+  if(S.discovered.length) renderPapers(sortPapers(S.discovered), $('discover-results'), false, $('discover-query').value.trim());
+});
+
+function renderPapers(papers, host, isLibrary, q){
+  host.innerHTML=papers.map((p,i)=>{
+    const id=p.paper_id||p.id||'';
+    const link=p.abs_url||p.pdf_url||p.url||'';
+    const au=authorsStr(p);
+    const sel=!isLibrary && !p.already_indexed
+      ? '<label class="paper-select"><input type="checkbox" data-id="'+escAttr(id)+'" '+(S.selectedPapers.has(id)?'checked':'')+' /><span class="box">✓</span></label>'
+      : '';
+    const del=isLibrary ? '<button class="btn btn-danger btn-sm" data-del="'+escAttr(id)+'">Remove</button>' : '';
+    const indexBtn=(!isLibrary && !p.already_indexed) ? '<button class="btn btn-pri btn-sm" data-indexone="'+escAttr(id)+'" data-title="'+escAttr(p.title||'')+'">Index this paper</button>' : '';
+    const pdfBtn=p.pdf_url ? '<a class="btn btn-sec btn-sm" href="'+escAttr(p.pdf_url)+'" target="_blank" rel="noopener">PDF</a>' : '';
+    const idxBadge=p.already_indexed ? '<span class="badge indexed">Indexed</span>' : '';
+    return '<article class="paper-card'+(S.selectedPapers.has(id)?' selected':'')+'" style="animation-delay:'+(i*50)+'ms">'+sel+
+      '<div class="paper-title">'+(link?'<a href="'+escAttr(link)+'" target="_blank" rel="noopener">'+esc(p.title||'Untitled')+'</a>':esc(p.title||'Untitled'))+'</div>'+
+      (au?'<div class="paper-authors">'+esc(au)+'</div>':'')+
+      '<div class="paper-meta">'+
+        (p.source?'<span class="badge src">'+esc(p.source)+'</span>':'')+
+        (p.year?'<span class="badge">'+esc(String(p.year))+'</span>':'')+
+        (p.citation_count!=null?'<span class="badge">'+esc(String(p.citation_count))+' cites</span>':'')+
+        (p.venue?'<span class="badge">'+esc(String(p.venue).slice(0,40))+'</span>':'')+idxBadge+
+      '</div>'+
+      '<div class="paper-abstract">'+hl(p.abstract||p.snippet||'', q||'')+'</div>'+
+      '<div class="paper-actions">'+indexBtn+pdfBtn+del+'</div>'+
+      '</article>';
   }).join('');
 }
 
-function togglePaperSelect(checkbox, idx) {
-  const paper = discoveredPapers[idx];
-  if (!paper) return;
-  if (checkbox.checked) {
-    selectedPapers.set(paper.paper_id, paper);
-  } else {
-    selectedPapers.delete(paper.paper_id);
-  }
+/* selection + delegated actions on discover results */
+$('discover-results').addEventListener('change',e=>{
+  const cb=e.target.closest('input[type=checkbox][data-id]'); if(!cb) return;
+  const id=cb.dataset.id;
+  const paper=S.discovered.find(p=>(p.paper_id||p.id)===id);
+  if(cb.checked){ if(paper) S.selectedPapers.set(id,paper); }
+  else S.selectedPapers.delete(id);
+  const card=cb.closest('.paper-card'); if(card) card.classList.toggle('selected',cb.checked);
   updateSelectedCount();
+});
+$('discover-results').addEventListener('click',e=>{
+  const one=e.target.closest('[data-indexone]');
+  if(one){ indexSingle(one.dataset.indexone, one.dataset.title); }
+});
+
+function updateSelectedCount(){
+  $('selected-count').textContent=S.selectedPapers.size+' selected';
 }
 
-function updateSelectedCount() {
-  const el = document.getElementById('selectedCount');
-  if (el) el.textContent = `${selectedPapers.size} selected`;
-}
-
-async function indexSelectedPapers() {
-  if (!selectedPapers.size) { toast('No papers', 'Select papers first.'); return; }
-
-  const collection = document.getElementById('collectionPicker').value || 'default';
-  const card = document.getElementById('researchProgressCard');
-  card.classList.remove('hidden');
-  document.getElementById('researchProgressLog').innerHTML = '';
-  setResearchProgress(4, 'Starting...');
-  addResearchLog('Indexing started');
-
-  const papersArray = Array.from(selectedPapers.values());
-
-  try {
-    const res = await api('/research/index', {
-      method: 'POST',
-      body: JSON.stringify({
-        paper_ids: papersArray.map(p => p.paper_id),
-        papers: papersArray,
-        collection,
-      }),
-    });
-
-    if (!(res instanceof Response) || !res.body) throw new Error('Could not start');
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop() || '';
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        let ev;
-        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
-        if (ev.type === 'paper_indexed') {
-          const p = Math.min(90, 20 + (ev.total_papers || 0) * 5);
-          setResearchProgress(p, `${ev.total_papers || 0} papers, ${ev.total_chunks || 0} chunks`);
-        }
-        if (ev.type === 'paper_error') addResearchLog(`Error: ${ev.error}`, 'error');
-        if (ev.type === 'done' || ev.type === 'cancelled') {
-          setResearchProgress(100, ev.cancelled ? 'Cancelled' : 'Completed');
-          addResearchLog(ev.cancelled ? 'Cancelled' : 'Completed', 'success');
-          selectedPapers.clear();
-          updateSelectedCount();
-          loadLibrary();
-        }
-      }
+async function loadCollectionPicker(){
+  try{
+    const d=await api('/research/collections');
+    const sel=$('collection-picker');
+    sel.innerHTML='<option value="default">default</option>';
+    (d.collections||[]).forEach(c=>{ if(c==='default') return; const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+    const lib=$('library-collection');
+    if(lib){
+      lib.innerHTML='<option value="">All collections</option>';
+      (d.collections||[]).forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; lib.appendChild(o); });
     }
-  } catch (err) {
-    addResearchLog(`Failed: ${err.message}`, 'error');
-    toast('Indexing failed', err.message);
-  }
+  }catch(_){}
 }
 
-function setResearchProgress(pct, label) {
-  document.getElementById('researchProgressFill').style.width = `${Math.min(100, Math.max(0, pct))}%`;
-  document.getElementById('researchProgressPercent').textContent = `${Math.round(pct)}%`;
-  if (label) document.getElementById('researchProgressLabel').textContent = label;
+/* research progress helpers */
+function setRProgress(pct,label){
+  $('research-progress-fill').style.width=Math.min(100,Math.max(0,pct))+'%';
+  $('research-progress-percent').textContent=Math.round(pct)+'%';
+  if(label) $('research-progress-label').textContent=label;
+}
+function addRLog(text,type=''){
+  const log=$('research-progress-log');
+  const el=document.createElement('div'); el.className='log-entry '+type; el.textContent=text;
+  log.appendChild(el); log.scrollTop=log.scrollHeight;
 }
 
-function addResearchLog(text, type = '') {
-  const log = document.getElementById('researchProgressLog');
-  const el = document.createElement('div');
-  el.className = `log-entry ${type}`;
-  el.textContent = text;
-  log.appendChild(el);
-  log.scrollTop = log.scrollHeight;
+async function streamIndex(papers, collection){
+  $('research-progress-card').classList.remove('hide');
+  $('research-progress-log').innerHTML='';
+  setRProgress(4,'Starting…'); addRLog('Indexing '+papers.length+' paper(s)…');
+  await apiStream('/research/index',{paper_ids:papers.map(p=>p.paper_id||p.id),papers,collection},ev=>{
+    if(ev.type==='paper_indexed') setRProgress(Math.min(90,20+(ev.total_papers||0)*8),(ev.total_papers||0)+' papers · '+(ev.total_chunks||0)+' chunks');
+    else if(ev.type==='paper_error') addRLog('Error: '+ev.error,'error');
+    else if(ev.type==='error'){ addRLog('Error: '+ev.error,'error'); toast('Indexing failed',ev.error,'err'); }
+    else if(ev.type==='done'||ev.type==='cancelled'){
+      setRProgress(100, ev.cancelled?'Cancelled':'Completed');
+      addRLog(ev.cancelled?'Cancelled':'Completed','success');
+      toast(ev.cancelled?'Cancelled':'Papers indexed','','info');
+      S.selectedPapers.clear(); updateSelectedCount();
+      loadLibrary();
+    }
+  });
 }
 
-async function loadLibrary() {
-  const collection = document.getElementById('libraryCollection')?.value || '';
-  const host = document.getElementById('libraryResults');
-  host.innerHTML = '<div class="empty-state"><strong>Loading...</strong></div>';
+$('index-selected-btn').addEventListener('click',async()=>{
+  if(!S.selectedPapers.size){ toast('No papers','Select papers to index first.','err'); return; }
+  const collection=$('collection-picker').value||'default';
+  try{ await streamIndex([...S.selectedPapers.values()], collection); }
+  catch(e){ addRLog('Failed: '+e.message,'error'); toast('Indexing failed',e.message,'err'); }
+});
 
-  try {
-    let url = '/research/catalog';
-    if (collection) url += `?collection=${encodeURIComponent(collection)}`;
-    const data = await api(url);
-    const ids = data.papers || [];
+async function indexSingle(id,title){
+  const paper=S.discovered.find(p=>(p.paper_id||p.id)===id);
+  const papers=paper?[paper]:[{paper_id:id,title}];
+  const collection=$('collection-picker').value||'default';
+  try{ await streamIndex(papers, collection); }
+  catch(e){ toast('Indexing failed',e.message,'err'); }
+}
 
-    if (!ids.length) {
-      host.innerHTML = '<div class="empty-state"><strong>No papers indexed yet</strong>Use Discover to find and index papers.</div>';
+/* ── Research: library ─────────────────────────────────────── */
+async function loadLibrary(){
+  const collection=$('library-collection').value||'';
+  const host=$('library-results');
+  host.innerHTML='<div class="loading"><span class="spin"></span> Loading library…</div>';
+  try{
+    let url='/research/catalog'; if(collection) url+='?collection='+encodeURIComponent(collection);
+    const cat=await api(url);
+    const ids=cat.papers||[];
+    if(!ids.length){
+      host.innerHTML='<div class="empty-state"><span class="eicon">📚</span><strong>No papers indexed yet</strong><p>Use Discover to find and index papers.</p></div>';
       return;
     }
-
-    // Load collections into the library dropdown
-    const libSelect = document.getElementById('libraryCollection');
-    if (libSelect && data.collections) {
-      libSelect.innerHTML = '<option value="">All collections</option>';
-      data.collections.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.textContent = c;
-        libSelect.appendChild(opt);
-      });
-    }
-
-    // For now, search to get full metadata
-    const searchResult = await api('/research/search', {
-      method: 'POST',
-      body: JSON.stringify({ q: '*', k: ids.length, collection: collection || null }),
-    });
-
-    const papers = (searchResult.results || []).map(r => ({
-      paper_id: r.paper_id || '',
-      title: r.title || '',
-      source: r.source || '',
-      year: r.year || null,
-      venue: '',
-      citation_count: null,
-      authors: r.author ? [r.author] : [],
-      abstract: r.snippet || '',
-      abs_url: r.url || '',
-      pdf_url: '',
-      already_indexed: true,
+    const sr=await api('/research/search',{method:'POST',body:JSON.stringify({q:'*',k:Math.max(ids.length,1),collection:collection||null})});
+    const papers=(sr.results||[]).map(r=>({
+      paper_id:r.paper_id||'', title:r.title||'', source:r.source||'', year:r.year||null,
+      authors:r.author?[r.author]:[], abstract:r.snippet||'', abs_url:r.url||'', already_indexed:true,
     }));
-
-    renderPaperCards(papers, host, true);
-  } catch (err) {
-    host.innerHTML = `<div class="empty-state"><strong>Failed to load library</strong>${esc(err.message)}</div>`;
+    renderPapers(papers, host, true, '');
+  }catch(e){
+    host.innerHTML='<div class="empty-state"><span class="eicon">⚠️</span><strong>Failed to load library</strong><p>'+esc(e.message)+'</p></div>';
   }
 }
-
-async function loadCollectionPicker() {
-  try {
-    const data = await api('/research/collections');
-    const select = document.getElementById('collectionPicker');
-    if (!select) return;
-    select.innerHTML = '<option value="default">Default collection</option>';
-    (data.collections || []).forEach(c => {
-      if (c === 'default') return;
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      select.appendChild(opt);
-    });
-  } catch (_) {}
-}
-
-async function deletePaper(paperId) {
-  if (!confirm('Remove this paper from the research library?')) return;
-  try {
-    await api('/research/delete', {
-      method: 'POST',
-      body: JSON.stringify({ paper_ids: [paperId] }),
-    });
-    toast('Removed', 'Paper deleted from library.');
+$('library-collection').addEventListener('change',loadLibrary);
+$('library-results').addEventListener('click',async e=>{
+  const btn=e.target.closest('[data-del]'); if(!btn) return;
+  if(!confirm('Remove this paper from the research library?')) return;
+  try{
+    await api('/research/delete',{method:'POST',body:JSON.stringify({paper_ids:[btn.dataset.del]})});
+    toast('Removed','Paper deleted from library.','info');
     loadLibrary();
-  } catch (err) {
-    toast('Delete failed', err.message);
-  }
-}
+  }catch(e){ toast('Delete failed',e.message,'err'); }
+});
 
-// --- Helpers ---
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s == null ? '' : String(s);
-  return d.innerHTML;
-}
+/* ── Scroll reveal for below-fold headers ──────────────────── */
+qsa('.section-title,.section-divider').forEach(el=>el.classList.add('reveal'));
+const io=new IntersectionObserver(es=>es.forEach(en=>{ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } }),{threshold:.15});
+qsa('.reveal').forEach(el=>io.observe(el));
 
-function escAttr(s) {
-  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function splitLines(v) {
-  return String(v || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-}
-
-function intVal(id, fallback) {
-  return parseInt(document.getElementById(id)?.value || String(fallback), 10);
-}
-
-// --- Init ---
+/* ── Init ──────────────────────────────────────────────────── */
+loadRepos();
+pollStatus();
 navigate('search');
