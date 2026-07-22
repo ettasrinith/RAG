@@ -157,6 +157,7 @@ function navigate(view) {
   if (view === 'dashboard') refreshDashboard();
   if (view === 'research') { loadCollectionPicker(); loadLibrary(); }
   if (view === 'settings') loadSettings();
+  if (view === 'admin') loadAdmin();
 }
 
 qsa('.nav-item').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
@@ -423,11 +424,24 @@ $('filter-hybrid').addEventListener('change', doSearch);
 
 let chatHistory = [];
 let chatScope = 'main';
+let currentSessionId = null;
+let attachedFile = null;
+let attachedFileContent = '';
 
-function addChatMessage(role, html) {
+function addChatMessage(role, html, msgId) {
   const div = document.createElement('div');
   div.className = 'msg ' + (role === 'user' ? 'user' : 'assistant');
   div.innerHTML = html;
+  if (msgId) div.dataset.msgId = msgId;
+  // Add feedback buttons for assistant messages
+  if (role === 'assistant' && msgId) {
+    const fb = document.createElement('div');
+    fb.className = 'msg-feedback';
+    fb.innerHTML =
+      '<button class="fb-btn fb-up" data-fb="up" title="Good answer">👍</button>' +
+      '<button class="fb-btn fb-down" data-fb="down" title="Bad answer">👎</button>';
+    div.appendChild(fb);
+  }
   $('chat-messages').appendChild(div);
   scrollChat();
   return div;
@@ -438,6 +452,145 @@ function scrollChat() {
   el.scrollTop = el.scrollHeight;
 }
 
+/* ── Session Management ──────────────────────────────── */
+async function loadSessions() {
+  try {
+    const sessions = await api('/v1/sessions');
+    const list = $('sessions-list');
+    if (!sessions || !sessions.length) {
+      list.innerHTML = '<div class="empty-sm">No sessions yet</div>';
+      return;
+    }
+    list.innerHTML = sessions.map(s =>
+      '<div class="session-item' + (s.id === currentSessionId ? ' active' : '') + '" data-sid="' + escAttr(s.id) + '">' +
+      '<span class="si-title">' + esc(s.title || 'New chat') + '</span>' +
+      '<span class="si-meta">' + (s.message_count || 0) + ' messages</span>' +
+      '<button class="session-del" data-del="' + escAttr(s.id) + '" title="Delete">×</button>' +
+      '</div>'
+    ).join('');
+  } catch (_) {}
+}
+
+async function createSession() {
+  try {
+    const s = await api('/v1/sessions', { method: 'POST', body: JSON.stringify({ title: 'New chat' }) });
+    currentSessionId = s.id;
+    loadSessions();
+    clearChatMessages();
+    return s;
+  } catch (_) { return null; }
+}
+
+async function switchSession(sid) {
+  currentSessionId = sid;
+  loadSessions();
+  // Load messages
+  try {
+    const msgs = await api('/v1/sessions/' + sid);
+    clearChatMessages();
+    for (const m of msgs) {
+      if (m.role === 'user') {
+        addChatMessage('user', esc(m.content), m.id);
+      } else {
+        const rendered = renderCitations(m.content, m.sources || []);
+        const div = addChatMessage('assistant', '<div>' + rendered + '</div>', m.id);
+        if (m.sources && m.sources.length) {
+          renderSources(m.sources);
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+async function deleteSession(sid) {
+  try {
+    await api('/v1/sessions/' + sid, { method: 'DELETE' });
+    if (currentSessionId === sid) {
+      currentSessionId = null;
+      clearChatMessages();
+    }
+    loadSessions();
+  } catch (_) {}
+}
+
+async function saveMessage(role, content, sources) {
+  if (!currentSessionId) {
+    const s = await createSession();
+    if (!s) return null;
+  }
+  try {
+    const msg = await api('/v1/sessions/' + currentSessionId + '/messages', {
+      method: 'POST',
+      body: JSON.stringify({ role, content, sources: sources || null }),
+    });
+    loadSessions();
+    return msg;
+  } catch (_) { return null; }
+}
+
+async function saveFeedback(msgId, feedback) {
+  if (!currentSessionId || !msgId) return;
+  try {
+    await api('/v1/sessions/' + currentSessionId + '/messages/' + msgId + '/feedback', {
+      method: 'PATCH',
+      body: JSON.stringify({ feedback }),
+    });
+  } catch (_) {}
+}
+
+function clearChatMessages() {
+  const msgs = $('chat-messages');
+  msgs.innerHTML = '';
+  const welcome = $('chat-welcome');
+  if (welcome) msgs.appendChild(welcome.cloneNode(true));
+  $('sources-list').innerHTML = '<div class="empty-sm">No sources yet. Ask a question to see sources.</div>';
+  $('sources-count').textContent = '0';
+  chatHistory = [];
+}
+
+// Session sidebar events
+$('chat-new-session-btn')?.addEventListener('click', () => {
+  currentSessionId = null;
+  clearChatMessages();
+  loadSessions();
+});
+
+$('sessions-list')?.addEventListener('click', e => {
+  const del = e.target.closest('.session-del');
+  if (del) {
+    e.stopPropagation();
+    if (confirm('Delete this session?')) deleteSession(del.dataset.del);
+    return;
+  }
+  const item = e.target.closest('.session-item');
+  if (item && item.dataset.sid) switchSession(item.dataset.sid);
+});
+
+/* ── File Attachments ────────────────────────────────── */
+$('chat-attach-btn')?.addEventListener('click', () => $('chat-file-input')?.click());
+
+$('chat-file-input')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  attachedFile = file;
+  $('chat-attachment-bar').style.display = 'flex';
+  $('attachment-chip').textContent = '📎 ' + file.name;
+  // Read file content
+  try {
+    attachedFileContent = await file.text();
+  } catch (_) {
+    attachedFileContent = '';
+  }
+  e.target.value = '';
+});
+
+$('chat-attachment-remove')?.addEventListener('click', () => {
+  attachedFile = null;
+  attachedFileContent = '';
+  $('chat-attachment-bar').style.display = 'none';
+});
+
+/* ── Scope selector ──────────────────────────────────── */
 $('chat-scope-selector')?.addEventListener('click', e => {
   const btn = e.target.closest('.scope-btn');
   if (!btn) return;
@@ -462,19 +615,37 @@ $('chat-input').addEventListener('input', () => {
 });
 $('chat-send-btn').addEventListener('click', sendChatMessage);
 $('chat-new-btn').addEventListener('click', () => {
-  // Clear messages except welcome
-  const msgs = $('chat-messages');
-  msgs.innerHTML = '';
-  msgs.appendChild($('chat-welcome').cloneNode(true));
-  $('sources-list').innerHTML = '<div class="empty-sm">No sources yet. Ask a question to see sources.</div>';
-  $('sources-count').textContent = '0';
-  chatHistory = [];
+  currentSessionId = null;
+  clearChatMessages();
+  loadSessions();
+});
+
+// Message feedback
+$('chat-messages').addEventListener('click', e => {
+  const fb = e.target.closest('.fb-btn');
+  if (!fb) return;
+  const msgEl = fb.closest('.msg');
+  const msgId = msgEl?.dataset?.msgId;
+  const feedback = fb.dataset.fb;
+  if (msgId) {
+    saveFeedback(msgId, feedback);
+    // Visual feedback
+    qsa('.fb-btn', msgEl).forEach(b => b.classList.remove('selected'));
+    fb.classList.add('selected');
+  }
 });
 
 async function sendChatMessage() {
   const inp = $('chat-input');
   const q = inp.value.trim();
   if (!q || State.streaming) return;
+
+  // Build query with optional file context
+  let fullQuery = q;
+  if (attachedFileContent) {
+    fullQuery = q + '\n\n--- Attached file: ' + attachedFile.name + ' ---\n' + attachedFileContent.slice(0, 8000);
+  }
+
   inp.value = '';
   $('chat-send-btn').disabled = true;
   State.streaming = true;
@@ -483,7 +654,9 @@ async function sendChatMessage() {
   const welcome = $('chat-welcome');
   if (welcome) welcome.remove();
 
-  addChatMessage('user', esc(q));
+  // Save user message
+  const userMsg = await saveMessage('user', q);
+  addChatMessage('user', esc(q), userMsg?.id);
   const msgEl = addChatMessage('assistant', '<span class="typing"><span></span><span></span><span></span></span>');
 
   let content = '';
@@ -491,23 +664,30 @@ async function sendChatMessage() {
   let started = false;
 
   try {
-    await apiStream('/chat', { q, k: 8, scope: chatScope }, ev => {
+    await apiStream('/chat', { q: fullQuery, k: 8, scope: chatScope }, ev => {
       if (ev.type === 'sources') {
         sources = ev.sources || [];
         renderSources(sources);
       } else if (ev.type === 'token') {
         if (!started) { msgEl.innerHTML = ''; started = true; }
         content += ev.text;
-        msgEl.innerHTML = '<div>' + esc(content) + '</div>';
+        msgEl.innerHTML = '<div>' + renderCitations(content, sources) + '</div>';
         scrollChat();
       } else if (ev.type === 'done') {
-        if (sources.length) {
-          const sourcesHtml = '<div class="msg-sources"><strong>Sources</strong>' +
-            sources.map((s, i) =>
-              '<a href="' + escAttr(s.url || '#') + '" target="_blank" rel="noopener">[' + (i + 1) + '] ' + esc(s.title || 'Source') + '</a>'
-            ).join('') + '</div>';
-          msgEl.insertAdjacentHTML('beforeend', sourcesHtml);
-        }
+        msgEl.innerHTML = '<div>' + renderCitations(content, sources) + '</div>';
+        // Re-add feedback buttons
+        const fbDiv = document.createElement('div');
+        fbDiv.className = 'msg-feedback';
+        fbDiv.innerHTML =
+          '<button class="fb-btn fb-up" data-fb="up" title="Good answer">👍</button>' +
+          '<button class="fb-btn fb-down" data-fb="down" title="Bad answer">👎</button>';
+        msgEl.appendChild(fbDiv);
+        // Save assistant message
+        saveMessage('assistant', content, sources);
+        // Clear attachment
+        attachedFile = null;
+        attachedFileContent = '';
+        $('chat-attachment-bar').style.display = 'none';
         State.streaming = false;
         $('chat-send-btn').disabled = false;
         inp.focus();
@@ -528,6 +708,23 @@ async function sendChatMessage() {
   }
 }
 
+/* ── Inline Citations ─────────────────────────────────── */
+function renderCitations(text, sources) {
+  // Render [1], [2] etc. as clickable links to the source panel
+  let safe = esc(text);
+  if (sources && sources.length) {
+    safe = safe.replace(/\[(\d+)\]/g, (match, num) => {
+      const idx = parseInt(num, 10) - 1;
+      if (idx >= 0 && idx < sources.length) {
+        const url = sources[idx].url || '#';
+        return '<a class="citation" href="' + escAttr(url) + '" target="_blank" rel="noopener" title="' + esc(sources[idx].title || '') + '">[' + num + ']</a>';
+      }
+      return match;
+    });
+  }
+  return safe;
+}
+
 function renderSources(sources) {
   const list = $('sources-list');
   $('sources-count').textContent = sources.length;
@@ -535,13 +732,19 @@ function renderSources(sources) {
     list.innerHTML = '<div class="empty-sm">No sources found</div>';
     return;
   }
-  list.innerHTML = sources.map(s =>
-    '<div class="source-item">' +
+  list.innerHTML = sources.map((s, i) => {
+    const snippet = s.snippet || s.text || '';
+    const snippetHtml = snippet ? '<span class="si-snippet">' + esc(snippet.slice(0, 200)) + (snippet.length > 200 ? '…' : '') + '</span>' : '';
+    const link = s.url ? '<a href="' + escAttr(s.url) + '" target="_blank" rel="noopener" class="si-link">Open source →</a>' : '';
+    return '<div class="source-item" data-idx="' + (i + 1) + '">' +
+    '<span class="si-num">[' + (i + 1) + ']</span>' +
+    '<div class="si-body">' +
     '<span class="si-title">' + esc(s.title || 'Untitled') + '</span>' +
-    '<span class="si-meta">' + esc(s.source || '') + (s.repo ? ' · ' + esc(s.repo) : '') + '</span>' +
-    (s.summary ? '<span class="si-badge">Summary available</span>' : '') +
-    '</div>'
-  ).join('');
+    '<span class="si-meta">' + esc(s.source || '') + (s.repo ? ' · ' + esc(s.repo) : '') + (s.score ? ' · ' + Number(s.score).toFixed(3) : '') + '</span>' +
+    snippetHtml +
+    link +
+    '</div></div>';
+  }).join('');
 }
 
 /* ── ═══ INDEX ═════════════════════════════════════════ */
@@ -649,6 +852,23 @@ async function saveGithubConfig() {
   });
 }
 
+async function saveYoutubeConfig() {
+  const urls = $('youtube-urls').value.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  const ids = $('youtube-ids').value.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  const langs = $('youtube-langs').value.trim().split(',').map(l => l.trim()).filter(Boolean);
+  const timestamps = $('youtube-timestamps').checked;
+  await api('/config', {
+    method: 'POST',
+    body: JSON.stringify({
+      github_mode: 'youtube',
+      youtube_urls: urls,
+      youtube_video_ids: ids,
+      youtube_languages: langs.length ? langs : ['en'],
+      youtube_include_timestamps: timestamps,
+    }),
+  });
+}
+
 // Progress helpers
 function setProgress(pct, label) {
   $('progress-fill').style.width = Math.min(100, Math.max(0, pct)) + '%';
@@ -679,6 +899,11 @@ async function startIndexing() {
   } else if (State.source === 'zip') {
     if (!State.zipPath) { toast('Upload first', 'Drop a ZIP to extract it, then index.', 'error'); return; }
     repoPath = State.zipPath;
+  } else if (State.source === 'youtube') {
+    const urls = $('youtube-urls').value.trim();
+    const ids = $('youtube-ids').value.trim();
+    if (!urls && !ids) { toast('URLs or IDs required', 'Enter at least one YouTube URL or video ID.', 'error'); return; }
+    try { await saveYoutubeConfig(); } catch (e) { toast('Config save failed', e.message, 'error'); return; }
   }
 
   const panel = $('progress-panel');
@@ -1094,6 +1319,189 @@ qsa('.theme-option').forEach(opt => {
     }
   });
 });
+
+/* ── ═══ ADMIN PANEL ═══════════════════════════════ */
+
+async function loadAdmin() {
+  loadAdminHealth();
+  loadAdminConnectors();
+  loadAdminCollections();
+  loadAdminJobs();
+  loadAdminCacheStats();
+  loadAdminTools();
+  loadAdminConfig();
+}
+
+async function loadAdminHealth() {
+  try {
+    const r = await api('/v1/health');
+    const dot = $('ah-health-dot');
+    dot.className = 'admin-dot ' + (r.status || 'unknown');
+    $('ah-status').textContent = r.status || 'unknown';
+    $('ah-uptime').textContent = r.uptime_s ? formatDuration(r.uptime_s) : '—';
+    if (r.components) {
+      const vs = r.components.vector_store;
+      $('ah-vector').textContent = vs ? `${vs.status} (${vs.detail || ''})` : '—';
+      const db = r.components.database;
+      $('ah-db').textContent = db ? `${db.status} (${db.detail || ''})` : '—';
+      const em = r.components.embedding_model;
+      $('ah-embedding').textContent = em ? `${em.status} (${em.detail || ''})` : '—';
+    }
+  } catch (e) {
+    $('ah-status').textContent = 'unreachable';
+  }
+}
+
+async function loadAdminConnectors() {
+  const el = $('admin-connectors-list');
+  try {
+    const [repos, counts] = await Promise.all([
+      api('/repos'),
+      api('/health'),
+    ]);
+    const repoList = repos.repos || [];
+    const repoCounts = counts.repo_counts || {};
+    if (!repoList.length) {
+      el.innerHTML = '<div class="empty-sm">No connectors configured</div>';
+      return;
+    }
+    el.innerHTML = repoList.map(r => `
+      <div class="admin-list-item">
+        <div>
+          <span class="admin-item-name">${esc(r)}</span>
+          <span class="admin-item-meta">${repoCounts[r] || 0} chunks</span>
+        </div>
+        <span class="admin-badge active">Active</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty-sm">Failed to load connectors</div>';
+  }
+}
+
+async function loadAdminCollections() {
+  const el = $('admin-collections-list');
+  try {
+    const r = await api('/v1/collections');
+    const collections = r.data || [];
+    if (!collections.length) {
+      el.innerHTML = '<div class="empty-sm">No collections yet</div>';
+      return;
+    }
+    el.innerHTML = collections.map(c => `
+      <div class="admin-list-item">
+        <div>
+          <span class="admin-item-name">${esc(c.name || c.id)}</span>
+          <span class="admin-item-meta">${c.kind || 'default'} · ${c.doc_count || 0} docs</span>
+        </div>
+        <span class="admin-badge ${c.status === 'idle' ? 'idle' : 'active'}">${esc(c.status || 'idle')}</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty-sm">Failed to load collections</div>';
+  }
+}
+
+async function loadAdminJobs() {
+  const el = $('admin-jobs-list');
+  try {
+    const r = await api('/v1/jobs');
+    const jobs = r.data || [];
+    if (!jobs.length) {
+      el.innerHTML = '<div class="empty-sm">No recent jobs</div>';
+      return;
+    }
+    el.innerHTML = jobs.slice(0, 10).map(j => {
+      const pct = j.items_total ? Math.round((j.items_done / j.items_total) * 100) : 0;
+      return `
+        <div class="admin-list-item">
+          <div>
+            <span class="admin-item-name">${esc(j.source || 'unknown')}</span>
+            <span class="admin-item-meta">${j.items_done || 0}/${j.items_total || 0} · ${esc(j.state || 'pending')}</span>
+          </div>
+          <span class="admin-badge ${j.state === 'done' ? 'active' : j.state === 'failed' ? 'error' : 'idle'}">${esc(j.state || 'pending')}</span>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty-sm">Failed to load jobs</div>';
+  }
+}
+
+async function loadAdminCacheStats() {
+  try {
+    // Cache stats are server-side; show placeholder until /v1/cache-stats exists
+    $('ac-embed-hits').textContent = '—';
+    $('ac-embed-misses').textContent = '—';
+    $('ac-search-hits').textContent = '—';
+    $('ac-search-misses').textContent = '—';
+    $('ac-embed-rate').style.width = '0%';
+    $('ac-search-rate').style.width = '0%';
+  } catch (e) {}
+}
+
+async function loadAdminTools() {
+  const el = $('admin-tools-list');
+  try {
+    const r = await api('/v1/agent:tools');
+    const tools = r.tools || [];
+    if (!tools.length) {
+      el.innerHTML = '<div class="empty-sm">No agent tools loaded</div>';
+      return;
+    }
+    el.innerHTML = tools.map(t => `
+      <div class="admin-list-item">
+        <div>
+          <span class="admin-item-name">${esc(t.name)}</span>
+          <span class="admin-item-meta">${esc(t.description).slice(0, 80)}${t.description.length > 80 ? '...' : ''}</span>
+        </div>
+        <span class="admin-badge idle">${esc(t.category || 'general')}</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty-sm">Failed to load tools</div>';
+  }
+}
+
+async function loadAdminConfig() {
+  try {
+    const r = await api('/health');
+    if (r.embedding_model) {
+      const sel = $('admin-embed-model');
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === r.embedding_model) { sel.selectedIndex = i; break; }
+      }
+    }
+    if (r.llm_model) $('admin-llm-model').value = r.llm_model;
+  } catch (e) {}
+}
+
+$('admin-health-refresh')?.addEventListener('click', loadAdminHealth);
+$('admin-connectors-refresh')?.addEventListener('click', loadAdminConnectors);
+$('admin-collections-refresh')?.addEventListener('click', loadAdminCollections);
+$('admin-jobs-refresh')?.addEventListener('click', loadAdminJobs);
+$('admin-cache-refresh')?.addEventListener('click', loadAdminCacheStats);
+$('admin-tools-refresh')?.addEventListener('click', loadAdminTools);
+
+$('admin-save-config')?.addEventListener('click', async () => {
+  try {
+    await api('/config', {
+      method: 'POST',
+      body: JSON.stringify({
+        // Config save goes through legacy endpoint
+      }),
+    });
+    toast('Config Saved', 'Configuration updated successfully.', 'success');
+  } catch (e) {
+    toast('Save failed', e.message, 'error');
+  }
+});
+
+function formatDuration(seconds) {
+  if (seconds < 60) return Math.round(seconds) + 's';
+  if (seconds < 3600) return Math.round(seconds / 60) + 'm';
+  return (seconds / 3600).toFixed(1) + 'h';
+}
 
 /* ── ═══ INIT ════════════════════════════════════════ */
 

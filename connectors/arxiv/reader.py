@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import httpx
 
 from connectors.base import BaseConnector, Document
+from core.resilience import get_breaker, with_retry
 
 ARXIV_API = "https://export.arxiv.org/api/query"
 PDF_URL_RE = re.compile(r"/pdf/([0-9]{4}\.[0-9]{4,5})(?:\.pdf)?$")
@@ -75,10 +76,13 @@ class ArxivConnector(BaseConnector):
         return ids
 
     def _fetch_feed(self, params: dict) -> str:
-        resp = httpx.get(ARXIV_API, params=params, timeout=self.timeout,
-                         headers={"User-Agent": USER_AGENT})
-        resp.raise_for_status()
-        return resp.text
+        breaker = get_breaker("arxiv")
+        def _do_fetch():
+            resp = httpx.get(ARXIV_API, params=params, timeout=self.timeout,
+                             headers={"User-Agent": USER_AGENT})
+            resp.raise_for_status()
+            return resp.text
+        return breaker.call(_do_fetch)
 
     def search_papers(self, query: str, limit: int = 30) -> list[dict]:
         """Thin wrapper returning raw dicts for the research discover pipeline."""

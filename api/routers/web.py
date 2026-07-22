@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from api.auth import verify_api_key
 from api.deps import get_llm
 from core.llm import LLMClient
 from services.web_search_service import WebSearchService
@@ -36,7 +37,10 @@ class WebSearchResponse(BaseModel):
 
 
 @router.post(":search")
-def web_search(req: WebSearchRequest):
+def web_search(
+    req: WebSearchRequest,
+    _auth: None = Depends(verify_api_key),
+):
     svc = WebSearchService()
     papers = svc.discover(req.q, sources=req.sources, limit=req.limit)
     return WebSearchResponse(

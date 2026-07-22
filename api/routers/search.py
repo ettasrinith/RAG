@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
+from api.auth import verify_api_key
 from api.deps import get_session, get_store
 from core.vector_store import VectorStore
 from services.search_service import SearchService
@@ -57,6 +58,7 @@ def search_documents(
     req: SearchRequest,
     session: Session = Depends(get_session),
     store: VectorStore = Depends(get_store),
+    _auth: None = Depends(verify_api_key),
 ):
     svc = SearchService(session, store)
     result = svc.search(

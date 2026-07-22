@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from api.auth import verify_api_key
 from api.deps import get_session, get_store
 from api.schemas.documents import (
     IngestRequest,
@@ -39,6 +40,7 @@ def upload_documents(
     files: list[UploadFile] = File(...),
     session: Session = Depends(get_session),
     store: VectorStore = Depends(get_store),
+    _auth: None = Depends(verify_api_key),
 ):
     """Upload files and start an indexing job."""
     if not files or len(files) == 0:
@@ -86,7 +88,10 @@ def upload_documents(
 
 
 @router.post(":github-lookup")
-def github_lookup(req: GitHubLookupRequest) -> GitHubLookupResponse:
+def github_lookup(
+    req: GitHubLookupRequest,
+    _auth: None = Depends(verify_api_key),
+) -> GitHubLookupResponse:
     """Parse a GitHub URL and return repo information."""
     url = req.url.strip().rstrip("/")
     # Match patterns: https://github.com/owner/repo, github.com/owner/repo
@@ -132,6 +137,7 @@ def ingest_documents(
     req: IngestRequest,
     session: Session = Depends(get_session),
     store: VectorStore = Depends(get_store),
+    _auth: None = Depends(verify_api_key),
 ):
     svc = IngestService(session, store)
     job_id = svc.start_ingest(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from api.auth import verify_api_key
 from api.deps import get_session, get_store
 from api.schemas.papers import PaperSearchRequest, PaperSearchResponse, PaperDetail
 from core.vector_store import VectorStore as LanceStore
@@ -17,6 +18,7 @@ def search_papers(
     req: PaperSearchRequest,
     session: Session = Depends(get_session),
     store: LanceStore = Depends(get_store),
+    _auth: None = Depends(verify_api_key),
 ):
     svc = PaperService(session, store)
     return svc.search(req)
@@ -27,6 +29,7 @@ def get_paper(
     paper_id: str,
     session: Session = Depends(get_session),
     store: LanceStore = Depends(get_store),
+    _auth: None = Depends(verify_api_key),
 ):
     svc = PaperService(session, store)
     return svc.get_detail(paper_id)

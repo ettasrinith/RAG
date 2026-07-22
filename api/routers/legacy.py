@@ -21,7 +21,7 @@ from core.uploads import create_upload_dir, cleanup_upload_dir, extract_zip_safe
 from connectors.website.crawler import WebsiteCrawlerConnector
 from core.chunker import chunk_text
 from core.embedder import embed, embed_query
-from core.search.fusion import rrf_fuse
+from core.search.fusion import rrf_fuse, apply_recency_bias
 from core.search.reranker import rerank
 from api.deps import get_llm, get_store, get_research_store, get_session
 from core.logging import get_logger
@@ -64,6 +64,11 @@ class ConfigRequest(BaseModel):
     github_mode: str | None = Field(default=None, max_length=50)
     github_files_enabled: bool | None = None
     repo_path: str | None = Field(default=None, max_length=1000)
+    # YouTube connector fields
+    youtube_urls: list[str] | None = None
+    youtube_video_ids: list[str] | None = None
+    youtube_languages: list[str] | None = None
+    youtube_include_timestamps: bool | None = None
 
 
 class WebAskRequest(BaseModel):
@@ -78,7 +83,9 @@ def _require_auth(request: Request):
     if not API_KEY:
         return
     provided = request.headers.get("X-API-Key") or request.query_params.get("token", "")
-    if provided != API_KEY:
+    # Timing-safe comparison to prevent timing attacks
+    import hmac
+    if not hmac.compare_digest(provided.encode(), API_KEY.encode()):
         raise HTTPException(status_code=401, detail="missing or invalid API key")
 
 
@@ -87,8 +94,8 @@ def health(store=Depends(get_store), research_store=Depends(get_research_store))
     research_count = 0
     try:
         research_count = research_store.count()
-    except Exception:
-        log.warning("research_store.count failed")
+    except Exception as e:
+        log.warning("research_store.count failed: %s", e)
     return {
         "ok": True,
         "rows": store.count(),
@@ -127,6 +134,12 @@ def search(req: SearchRequest, store=Depends(get_store), research_store=Depends(
             fused = rrf_fuse(fused, r_vec + r_fts, top_n=k * 2)
     except Exception as e:
         log.warning("research search failed: %s", e)
+
+    # Apply recency bias so newer documents rank higher
+    try:
+        fused = apply_recency_bias(fused)
+    except Exception as e:
+        log.warning("recency_bias failed: %s", e)
 
     reranked = rerank(q, fused, top_k=k) if config.get("search", {}).get("rerank", False) else fused[:k]
 
@@ -374,6 +387,18 @@ def save_config(req: ConfigRequest):
     if req.github_mode is not None: gh["mode"] = req.github_mode
     if req.github_files_enabled is not None: gh["enabled"] = req.github_files_enabled
     if req.repo_path is not None: gh["local_path"] = req.repo_path
+
+    # YouTube connector config
+    if req.github_mode == "youtube":
+        yt = current.setdefault("connectors", {}).setdefault("youtube", {})
+        yt["enabled"] = True
+        if req.youtube_urls is not None: yt["urls"] = req.youtube_urls
+        if req.youtube_video_ids is not None: yt["video_ids"] = req.youtube_video_ids
+        if req.youtube_languages is not None: yt["languages"] = req.youtube_languages
+        if req.youtube_include_timestamps is not None: yt["include_timestamps"] = req.youtube_include_timestamps
+        # Disable github_files when switching to youtube
+        gh["enabled"] = False
+
     _save_config(current)
     return {"status": "ok"}
 

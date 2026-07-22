@@ -1,6 +1,7 @@
 """LanceDB wrapper — vector + full-text + hierarchy in one local table."""
 from __future__ import annotations
 
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -58,18 +59,34 @@ def _research_schema(dim: int) -> pa.Schema:
 def _esc(val: str) -> str:
     """Escape a string value for safe use in LanceDB WHERE clauses.
 
-    LanceDB uses a SQL-like WHERE clause; removing dangerous characters is
-    far safer than trying to escape them because LanceDB's parser doesn't
-    support standard SQL backslash escapes.
+    Uses a whitelist-ish approach: remove characters that could break out of
+    a string literal or inject SQL-like statements.
     """
-    val = val.replace("\\", "\\\\")   # backslash
-    val = val.replace("'", "''")      # single quote
-    val = val.replace("\x00", "")     # null bytes
-    val = val.replace(";", "")        # statement separator — just remove
-    val = val.replace("--", "")       # SQL comment
-    val = val.replace("/*", "")       # block comment start
-    val = val.replace("*/", "")       # block comment end
+    # Remove null bytes
+    val = val.replace("\x00", "")
+    # Double single quotes (standard SQL string escaping)
+    val = val.replace("'", "''")
+    # Remove statement terminators and comment sequences
+    val = val.replace(";", "")
+    val = val.replace("--", "")
+    val = val.replace("/*", "")
+    val = val.replace("*/", "")
     return val
+
+
+def _esc_like(val: str) -> str:
+    """Escape a value for use in LIKE patterns (also escapes wildcards)."""
+    val = _esc(val)
+    val = val.replace("%", "\\%")
+    val = val.replace("_", "\\_")
+    return val
+
+
+def _validate_identifier(name: str) -> str:
+    """Validate a column/field name to prevent injection via identifiers."""
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+        raise ValueError(f"Invalid identifier: {name}")
+    return name
 
 
 class VectorStore:
@@ -113,7 +130,8 @@ class VectorStore:
     def search(self, query_vector: list[float], k: int = 10,
                source_filter: str | None = None,
                repo_filter: str | None = None,
-               hierarchy_filter: str | None = None) -> list[dict]:
+               hierarchy_filter: str | None = None,
+               user_groups: list[str] | None = None) -> list[dict]:
         q = self.table.search(query_vector).limit(k)
         if source_filter:
             q = q.where(f"source = '{_esc(source_filter)}'")
@@ -121,11 +139,16 @@ class VectorStore:
             q = q.where(f"repo = '{_esc(repo_filter)}'")
         if hierarchy_filter:
             q = q.where(f"hierarchy_path LIKE '{_esc(hierarchy_filter)}%'")
-        return q.to_list()
+        # ACL filtering: applied in-memory if acl_read column exists
+        results = q.to_list()
+        if user_groups is not None and results:
+            results = self._filter_by_acl(results, user_groups)
+        return results
 
     def fts_search(self, query: str, k: int = 10,
                    source_filter: str | None = None,
-                   repo_filter: str | None = None) -> list[dict]:
+                   repo_filter: str | None = None,
+                   user_groups: list[str] | None = None) -> list[dict]:
         try:
             if self.count() == 0:
                 return []
@@ -135,10 +158,154 @@ class VectorStore:
                 q = q.where(f"source = '{_esc(source_filter)}'")
             if repo_filter:
                 q = q.where(f"repo = '{_esc(repo_filter)}'")
-            return q.to_list()
+            results = q.to_list()
+            if user_groups is not None and results:
+                results = self._filter_by_acl(results, user_groups)
+            return results
         except Exception as e:
-            log.warning("fts_search failed: %s", e)
+            log.warning("fts_search failed for query=%r: %s", query[:50], e)
             return []
+
+    # ── ACL Management ──────────────────────────────────────────────
+
+    def _has_acl_column(self) -> bool:
+        """Check if the table has acl_read column (for backward compatibility)."""
+        try:
+            fields = [f.name for f in self.table.schema]
+            return "acl_read" in fields
+        except Exception:
+            return False
+
+    def _filter_by_acl(self, results: list[dict], user_groups: list[str]) -> list[dict]:
+        """Filter results by ACL in memory. Chunks with empty/no acl_read are public."""
+        if not self._has_acl_column():
+            return results  # No ACL column — all chunks are public
+        filtered = []
+        for r in results:
+            acl = r.get("acl_read")
+            if not acl:
+                filtered.append(r)  # No ACL set = public
+            elif any(g in acl for g in user_groups):
+                filtered.append(r)  # User has access
+        return filtered
+
+    def ensure_acl_columns(self) -> bool:
+        """Add ACL columns to an existing table if they don't exist."""
+        if self._has_acl_column():
+            return True
+        try:
+            import pyarrow as pa
+            tbl = self.table.to_arrow()
+            n = tbl.num_rows
+            # Add nullable ACL columns
+            acl_read_default = pa.array([[] for _ in range(n)], type=pa.list_(pa.string()))
+            acl_write_default = pa.array([[] for _ in range(n)], type=pa.list_(pa.string()))
+            acl_owner_default = pa.array(["" for _ in range(n)], type=pa.string())
+            tbl = tbl.append_column("acl_read", acl_read_default)
+            tbl = tbl.append_column("acl_write", acl_write_default)
+            tbl = tbl.append_column("acl_owner", acl_owner_default)
+            self.table.delete("true")
+            self.table.add(tbl)
+            log.info("acl_columns_added", extra={"rows": n})
+            return True
+        except Exception as e:
+            log.warning("ensure_acl_columns failed: %s", e)
+            return False
+
+    def set_chunk_acl(
+        self,
+        chunk_ids: list[str],
+        acl_read: list[str] | None = None,
+        acl_write: list[str] | None = None,
+        acl_owner: str | None = None,
+    ) -> int:
+        """Update ACL fields on specific chunks. Returns count updated."""
+        if not chunk_ids:
+            return 0
+        if not self._has_acl_column():
+            self.ensure_acl_columns()
+
+        tbl = self.table.to_arrow()
+        ids_array = tbl.column("id").combine_chunks().to_pylist()
+        id_set = set(chunk_ids)
+        update_mask = [i in id_set for i in ids_array]
+
+        if not any(update_mask):
+            return 0
+
+        import pyarrow as pa
+        acl_read_col = tbl.column("acl_read").combine_chunks()
+        acl_write_col = tbl.column("acl_write").combine_chunks()
+        acl_owner_col = tbl.column("acl_owner").combine_chunks()
+
+        new_read = []
+        new_write = []
+        new_owner = []
+        updated = 0
+
+        for idx, mask in enumerate(update_mask):
+            old_r = acl_read_col[idx].as_py() if acl_read_col[idx] else []
+            old_w = acl_write_col[idx].as_py() if acl_write_col[idx] else []
+            old_o = acl_owner_col[idx].as_py() if acl_owner_col[idx] else ""
+            if mask:
+                new_read.append(acl_read if acl_read is not None else old_r)
+                new_write.append(acl_write if acl_write is not None else old_w)
+                new_owner.append(acl_owner if acl_owner is not None else old_o)
+                updated += 1
+            else:
+                new_read.append(old_r)
+                new_write.append(old_w)
+                new_owner.append(old_o)
+
+        new_tbl = tbl.set_column(
+            tbl.schema.get_field_index("acl_read"), "acl_read",
+            pa.array(new_read, type=pa.list_(pa.string()))
+        )
+        new_tbl = new_tbl.set_column(
+            new_tbl.schema.get_field_index("acl_write"), "acl_write",
+            pa.array(new_write, type=pa.list_(pa.string()))
+        )
+        new_tbl = new_tbl.set_column(
+            new_tbl.schema.get_field_index("acl_owner"), "acl_owner",
+            pa.array(new_owner, type=pa.string())
+        )
+
+        self.table.delete("true")
+        self.table.add(new_tbl)
+        log.info("acl_updated", extra={"chunk_ids": len(chunk_ids), "updated": updated})
+        return updated
+
+    def set_repo_acl(self, repo: str, acl_read: list[str]) -> int:
+        """Set ACL on all chunks in a repository."""
+        if not self._has_acl_column():
+            self.ensure_acl_columns()
+        tbl = self.table.to_arrow()
+        repo_col = tbl.column("repo").combine_chunks().to_pylist()
+        chunk_ids = [
+            tbl.column("id").combine_chunks().to_pylist()[i]
+            for i, r in enumerate(repo_col)
+            if r == repo
+        ]
+        return self.set_chunk_acl(chunk_ids, acl_read=acl_read)
+
+    def get_chunk_acl(self, chunk_id: str) -> dict | None:
+        """Get ACL for a specific chunk."""
+        if not self._has_acl_column():
+            return None
+        tbl = self.table.to_arrow()
+        ids = tbl.column("id").combine_chunks().to_pylist()
+        for i, cid in enumerate(ids):
+            if cid == chunk_id:
+                return {
+                    "id": chunk_id,
+                    "acl_read": (tbl.column("acl_read").combine_chunks()[i].as_py()
+                                 if tbl.column("acl_read").combine_chunks()[i] else []),
+                    "acl_write": (tbl.column("acl_write").combine_chunks()[i].as_py()
+                                  if tbl.column("acl_write").combine_chunks()[i] else []),
+                    "acl_owner": (tbl.column("acl_owner").combine_chunks()[i].as_py()
+                                  if tbl.column("acl_owner").combine_chunks()[i] else ""),
+                }
+        return None
 
     def list_repos(self) -> list[str]:
         try:

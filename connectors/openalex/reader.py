@@ -13,6 +13,7 @@ from urllib.parse import quote
 import httpx
 
 from connectors.base import BaseConnector, Document
+from core.resilience import get_breaker
 
 OPENALEX_API = "https://api.openalex.org/works"
 USER_AGENT = "KnowledgeHubBot/1.0 (+https://localhost)"
@@ -71,12 +72,15 @@ class OpenAlexConnector(BaseConnector):
         out: list[dict] = []
         page = 1
         per_page = min(200, max(1, self.max_results))
+        breaker = get_breaker("openalex")
         while len(out) < self.max_results:
             params.update({"per-page": per_page, "page": page})
-            resp = httpx.get(OPENALEX_API, params=params, timeout=self.timeout,
-                             headers=self._headers())
-            resp.raise_for_status()
-            data = resp.json()
+            def _do_fetch(p=params.copy()):
+                resp = httpx.get(OPENALEX_API, params=p, timeout=self.timeout,
+                                 headers=self._headers())
+                resp.raise_for_status()
+                return resp.json()
+            data = breaker.call(_do_fetch)
             results = data.get("results", [])
             if not results:
                 break

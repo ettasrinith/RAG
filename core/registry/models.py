@@ -97,3 +97,30 @@ class IndexJobModel(Base):
     finished_at = Column(DateTime, nullable=True)
 
     collection = relationship("CollectionModel", back_populates="jobs")
+
+
+class ChatSessionModel(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    title = Column(String(500), default="New chat")
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    messages = relationship("ChatMessageModel", back_populates="session", cascade="all, delete-orphan",
+                            order_by="ChatMessageModel.created_at")
+
+
+class ChatMessageModel(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    session_id = Column(String(36), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # "user" | "assistant"
+    content = Column(Text, nullable=False)
+    sources_json = Column(JSON, nullable=True)  # serialized sources list
+    feedback = Column(String(20), nullable=True)  # "up" | "down" | null
+    feedback_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    session = relationship("ChatSessionModel", back_populates="messages")

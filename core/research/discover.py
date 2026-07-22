@@ -202,7 +202,7 @@ def discover_papers(req: DiscoverRequest, catalog: PaperCatalog) -> DiscoverResp
             try:
                 all_cards.extend(fut.result())
             except Exception as e:
-                log.warning("source fetch %s failed: %s", futures[f], e)
+                log.warning("source fetch %s failed: %s", futures[fut], e)
 
     merged = merge_paper_cards(all_cards)
     _set_cached(key, merged)

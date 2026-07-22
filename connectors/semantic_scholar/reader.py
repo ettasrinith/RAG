@@ -15,6 +15,7 @@ from urllib.parse import quote
 import httpx
 
 from connectors.base import BaseConnector, Document
+from core.resilience import get_breaker
 
 S2_API = "https://api.semanticscholar.org/graph/v1"
 USER_AGENT = "KnowledgeHubBot/1.0 (+https://localhost)"
@@ -64,16 +65,19 @@ class SemanticScholarConnector(BaseConnector):
         out: list[dict] = []
         offset = 0
         limit = min(100, max(1, self.max_results))
+        breaker = get_breaker("semantic_scholar")
         while len(out) < self.max_results:
-            resp = httpx.get(
-                f"{S2_API}/paper/search",
-                params={"query": self.query, "fields": FIELDS,
-                        "limit": limit, "offset": offset},
-                timeout=self.timeout,
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-            data = resp.json()
+            def _do_search(off=offset):
+                resp = httpx.get(
+                    f"{S2_API}/paper/search",
+                    params={"query": self.query, "fields": FIELDS,
+                            "limit": limit, "offset": off},
+                    timeout=self.timeout,
+                    headers=self._headers(),
+                )
+                resp.raise_for_status()
+                return resp.json()
+            data = breaker.call(_do_search)
             results = data.get("data", [])
             if not results:
                 break

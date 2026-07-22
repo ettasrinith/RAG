@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from api.errors import invalid_argument
+from core.vector_store import _esc, _validate_identifier
 
 
 class FilterCondition:
@@ -13,10 +14,16 @@ class FilterCondition:
         self.value = value
 
     def to_lancedb(self) -> str:
-        safe_field = self.field.replace("'", "").replace('"', "").replace(";", "")
+        # Validate field name (prevent injection via column names)
+        safe_field = _validate_identifier(self.field)
+        # Validate operator
+        if self.op not in ("=", "!=", ">=", "<=", ">", "<"):
+            raise ValueError(f"Invalid operator: {self.op}")
         if isinstance(self.value, str):
-            escaped = self.value.replace("'", "''")
+            escaped = _esc(self.value)
             return f"{safe_field} {self.op} '{escaped}'"
+        # Numeric: validate it's actually a number
+        float(self.value)  # Raises if not numeric
         return f"{safe_field} {self.op} {self.value}"
 
     def __repr__(self):
