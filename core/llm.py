@@ -48,22 +48,12 @@ Question: {question}
 
 Answer with inline citations like [1], [2]."""
 
-        last_error = None
-        for attempt in range(_MAX_RETRIES):
-            try:
-                if self.provider == "anthropic":
-                    yield from self._anthropic_stream(user_msg)
-                elif self.provider in ("openai", "litellm", "ollama"):
-                    yield from self._openai_stream(user_msg)
-                else:
-                    raise ValueError(f"unknown LLM provider: {self.provider}")
-                return
-            except Exception as e:
-                last_error = e
-                if attempt < _MAX_RETRIES - 1:
-                    time.sleep(_RETRY_DELAY * (attempt + 1))
-                    continue
-                raise last_error
+        if self.provider == "anthropic":
+            yield from self._anthropic_stream(user_msg)
+        elif self.provider in ("openai", "litellm", "ollama"):
+            yield from self._openai_stream(user_msg)
+        else:
+            raise ValueError(f"unknown LLM provider: {self.provider}")
 
     def answer_sync(self, question: str, sources: list[dict]) -> str:
         result = ""

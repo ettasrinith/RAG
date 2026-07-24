@@ -8,6 +8,7 @@ class ChatRequest(BaseModel):
     collections: list[str] = Field(default_factory=lambda: ["*"])
     k: int = Field(default=8, ge=1, le=50)
     filter: str | None = None
+    scope: str = Field(default="main", pattern="^(main|research)$")
     stream: bool = True
 
 

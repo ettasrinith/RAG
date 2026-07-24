@@ -7,6 +7,7 @@ import json
 import os
 import queue
 import threading
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
@@ -23,23 +24,19 @@ from core.chunker import chunk_text
 from core.embedder import embed, embed_query
 from core.search.fusion import rrf_fuse, apply_recency_bias
 from core.search.reranker import rerank
+from api.auth import verify_api_key
 from api.deps import get_llm, get_store, get_research_store, get_session
 from core.logging import get_logger
 
 log = get_logger("legacy")
 
-router = APIRouter(tags=["legacy"])
+router = APIRouter(tags=["legacy"], dependencies=[Depends(verify_api_key)])
 
 config = load_config()
 _stop_event = threading.Event()
 _index_lock = threading.Lock()
 _indexing_in_progress = False
 _current_index_result = None
-
-API_KEY = os.environ.get("KH_API_KEY", "")
-
-
-# ─── Pydantic models for legacy dict-based endpoints ──────────────
 
 class SearchRequest(BaseModel):
     q: str = Field(..., min_length=1, max_length=500)
@@ -51,6 +48,7 @@ class SearchRequest(BaseModel):
 class ChatRequest(BaseModel):
     q: str = Field(..., min_length=1, max_length=2000)
     k: int = Field(default=8, ge=1, le=50)
+    scope: str = Field(default="main", pattern="^(main|research)$")
 
 
 class SyncStartRequest(BaseModel):
@@ -77,16 +75,6 @@ class WebAskRequest(BaseModel):
     k: int = Field(default=8, ge=1, le=50)
     max_pages: int | None = Field(default=None, ge=1, le=1000)
     max_depth: int | None = Field(default=None, ge=1, le=10)
-
-
-def _require_auth(request: Request):
-    if not API_KEY:
-        return
-    provided = request.headers.get("X-API-Key") or request.query_params.get("token", "")
-    # Timing-safe comparison to prevent timing attacks
-    import hmac
-    if not hmac.compare_digest(provided.encode(), API_KEY.encode()):
-        raise HTTPException(status_code=401, detail="missing or invalid API key")
 
 
 @router.get("/health")
@@ -163,20 +151,37 @@ def chat(req: ChatRequest, llm=Depends(get_llm), store=Depends(get_store), resea
     q = req.q
     k = req.k
     qvec = embed_query(q, model_name=config["embedding"]["model"])
-    vector_hits = store.search(qvec, k=max(k * 2, 20))
-    fts_hits = store.fts_search(q, k=max(k * 2, 20))
-    fused = rrf_fuse(vector_hits, fts_hits, top_n=k * 2)
 
-    # Include research papers in chat context
-    try:
-        if research_store.count() > 0:
-            r_vec = research_store.search(qvec, k=max(k * 2, 20))
-            r_fts = research_store.fts_search(q, k=max(k * 2, 20))
-            for h in r_vec + r_fts:
-                h.setdefault("source", "research")
-            fused = rrf_fuse(fused, r_vec + r_fts, top_n=k * 2)
-    except Exception as e:
-        log.warning("research chat search failed: %s", e)
+    fused = []
+
+    # Search based on scope
+    if req.scope == "research":
+        # Research scope: only search research store
+        try:
+            if research_store.count() > 0:
+                r_vec = research_store.search(qvec, k=max(k * 2, 20))
+                r_fts = research_store.fts_search(q, k=max(k * 2, 20))
+                for h in r_vec + r_fts:
+                    h.setdefault("source", "research")
+                fused = rrf_fuse(r_vec, r_fts, top_n=k * 2)
+        except Exception as e:
+            log.warning("research chat search failed: %s", e)
+    else:
+        # Main scope: search knowledge store + research store
+        vector_hits = store.search(qvec, k=max(k * 2, 20))
+        fts_hits = store.fts_search(q, k=max(k * 2, 20))
+        fused = rrf_fuse(vector_hits, fts_hits, top_n=k * 2)
+
+        # Include research papers in chat context
+        try:
+            if research_store.count() > 0:
+                r_vec = research_store.search(qvec, k=max(k * 2, 20))
+                r_fts = research_store.fts_search(q, k=max(k * 2, 20))
+                for h in r_vec + r_fts:
+                    h.setdefault("source", "research")
+                fused = rrf_fuse(fused, r_vec + r_fts, top_n=k * 2)
+        except Exception as e:
+            log.warning("research chat search failed: %s", e)
 
     reranked = rerank(q, fused, top_k=k)
 
@@ -213,7 +218,9 @@ def sync_start(req: SyncStartRequest):
     def _run():
         global _indexing_in_progress, _current_index_result
         try:
-            result = run_indexing(progress_cb=_progress_cb, stop_event=_stop_event)
+            from api.deps import get_store
+            st = get_store()
+            result = run_indexing(progress_cb=_progress_cb, stop_event=_stop_event, store=st)
             _current_index_result = result
         except Exception as e:
             progress_q.put({"type": "error", "error": str(e)})
@@ -248,6 +255,29 @@ def sync_status(store=Depends(get_store)):
         "total_rows": store.count(),
         "last_result": _current_index_result,
     }
+
+
+@router.get("/sync/events")
+def sync_events(store=Depends(get_store)):
+    """SSE stream — pushes status changes in real-time (poll-free frontend)."""
+    def event_stream():
+        last = None
+        while True:
+            with _index_lock:
+                cur = {
+                    "indexing": _indexing_in_progress,
+                    "stop_requested": _stop_event.is_set(),
+                    "repos": store.list_repos(),
+                    "repo_counts": store.count_by_repo(),
+                    "total_rows": store.count(),
+                    "last_result": _current_index_result,
+                }
+            if cur != last:
+                yield f"data: {json.dumps(cur)}\n\n"
+                last = cur
+            time.sleep(1)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.post("/sync/stop")
@@ -638,10 +668,12 @@ def research_index(req: ResearchIndexRequest, session: Session = Depends(get_ses
 
     def _run():
         from core.registry.database import get_session as _get_db_session
+        from api.deps import get_research_store
         local_session = _get_db_session()
         local_job_svc = JobService(local_session)
         try:
-            index_papers(papers, collection=req.collection, progress_cb=_progress_cb)
+            research_st = get_research_store()
+            index_papers(papers, collection=req.collection, progress_cb=_progress_cb, store=research_st)
             local_job_svc.update_progress(job_id, items_done=len(papers), state="done")
             local_session.commit()
         except Exception as e:
@@ -721,12 +753,13 @@ def research_catalog(collection: str | None = None):
 @router.post("/research/delete")
 def research_delete(req: ResearchDeleteRequest, store=Depends(get_research_store)):
     from core.research.catalog import PaperCatalog
+    from core.lancedb_backend import _esc as esc
     catalog_path = config.get("research", {}).get("catalog_path", "./data/research_catalog.json")
     catalog = PaperCatalog(catalog_path)
     deleted = 0
     for pid in req.paper_ids:
         try:
-            store.table.delete(f"paper_id = '{pid}'")
+            store.table.delete(f"paper_id = '{esc(pid)}'")
         except Exception as e:
             log.warning("delete paper %s from store failed: %s", pid, e)
         try:

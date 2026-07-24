@@ -161,7 +161,7 @@ Enable GitHub commit indexing if you also want commit history in retrieval.
 ## Notes
 
 - Backend API: `api/server.py`
-- Frontend: `ui/index.html` + `ui/app.js` + `ui/styles.css`
+- Frontend: `ui/index.html` + `ui/js/` + `ui/css/` + `ui/views/`
 - Indexing pipeline: `core/indexer.py`
 - GitHub files connector: `connectors/github/files.py`
 

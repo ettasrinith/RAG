@@ -34,25 +34,41 @@ def chat_ask(
     qvec = embed_query(req.q, model_name=config["embedding"]["model"])
 
     k = req.k * 3
-    vector_hits = store.search(qvec, k=max(k * 2, 20))
-    fts_hits = store.fts_search(req.q, k=max(k * 2, 20))
+    fused = []
 
-    fused = rrf_fuse(vector_hits, fts_hits, top_n=k)
+    # Search based on scope
+    if req.scope == "research":
+        # Research scope: only search research store
+        try:
+            if research_store.count() > 0:
+                r_vec = research_store.search(qvec, k=max(k * 2, 20))
+                r_fts = research_store.fts_search(req.q, k=max(k * 2, 20))
+                for h in r_vec + r_fts:
+                    h.setdefault("source", "research")
+                    h.setdefault("repo", h.get("collection", "research"))
+                fused = rrf_fuse(r_vec, r_fts, top_n=k)
+        except Exception:
+            pass
+    else:
+        # Main scope: search knowledge store + research store
+        vector_hits = store.search(qvec, k=max(k * 2, 20))
+        fts_hits = store.fts_search(req.q, k=max(k * 2, 20))
+        fused = rrf_fuse(vector_hits, fts_hits, top_n=k)
 
-    # Also search research store so indexed papers appear in chat
-    try:
-        if research_store.count() > 0:
-            r_vec = research_store.search(qvec, k=max(k * 2, 20))
-            r_fts = research_store.fts_search(req.q, k=max(k * 2, 20))
-            for h in r_vec:
-                h.setdefault("source", "research")
-                h.setdefault("repo", h.get("collection", "research"))
-            for h in r_fts:
-                h.setdefault("source", "research")
-                h.setdefault("repo", h.get("collection", "research"))
-            fused = rrf_fuse(fused, r_vec + r_fts, top_n=k)
-    except Exception:
-        pass  # Research store may not have data yet
+        # Also search research store so indexed papers appear in chat
+        try:
+            if research_store.count() > 0:
+                r_vec = research_store.search(qvec, k=max(k * 2, 20))
+                r_fts = research_store.fts_search(req.q, k=max(k * 2, 20))
+                for h in r_vec:
+                    h.setdefault("source", "research")
+                    h.setdefault("repo", h.get("collection", "research"))
+                for h in r_fts:
+                    h.setdefault("source", "research")
+                    h.setdefault("repo", h.get("collection", "research"))
+                fused = rrf_fuse(fused, r_vec + r_fts, top_n=k)
+        except Exception:
+            pass  # Research store may not have data yet
 
     # Apply recency bias so newer documents rank higher
     fused = apply_recency_bias(fused)

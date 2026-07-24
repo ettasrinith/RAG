@@ -1,0 +1,107 @@
+<!-- Research View -->
+<section class="view" id="view-research">
+  <div class="view-header">
+    <div>
+      <span class="eyebrow">Academic Discovery</span>
+      <h1>Research <span class="gradient-text">Papers</span></h1>
+      <p class="view-desc">Discover papers from arXiv, Semantic Scholar & OpenAlex.</p>
+    </div>
+  </div>
+
+  <div class="research-tabs">
+    <button class="research-tab active" data-rtab="discover">Discover</button>
+    <button class="research-tab" data-rtab="library">Library</button>
+  </div>
+
+  <!-- Discover tab -->
+  <div class="rtab-content active" id="rtab-discover">
+    <form class="discover-form" id="discover-form">
+      <div class="discover-input-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <input type="text" id="discover-query" placeholder="e.g. retrieval augmented generation, vector databases…" />
+        <button class="btn btn-primary" id="discover-btn">Discover</button>
+      </div>
+      <div class="discover-controls">
+        <div class="source-toggles">
+          <span class="dc-label">Sources</span>
+          <label class="src-tgl active"><input type="checkbox" id="src-arxiv" checked /> arXiv</label>
+          <label class="src-tgl active"><input type="checkbox" id="src-s2" checked /> Semantic Scholar</label>
+          <label class="src-tgl active"><input type="checkbox" id="src-oa" checked /> OpenAlex</label>
+        </div>
+        <div class="dc-right">
+          <label class="dc-field">
+            <span>Limit</span>
+            <input type="number" id="discover-limit" value="10" min="1" max="50" />
+          </label>
+          <label class="dc-field">
+            <span>Sort</span>
+            <select id="discover-sort">
+              <option value="relevance">Relevance</option>
+              <option value="year_desc">Newest</option>
+              <option value="citations_desc">Most cited</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </form>
+
+    <div class="discover-status" id="discover-status"></div>
+    <div class="paper-grid" id="discover-results">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        </div>
+        <h3>Search for papers</h3>
+        <p>Enter a query to discover academic papers across multiple sources.</p>
+      </div>
+    </div>
+
+    <!-- Selection bar -->
+    <div class="selection-bar hide" id="selection-bar">
+      <span class="selection-count" id="selection-count">0 selected</span>
+      <div class="selection-actions">
+        <select id="collection-picker" class="filter-select">
+          <option value="default">default</option>
+        </select>
+        <button class="btn btn-primary" id="index-selected-btn">Index Selected</button>
+      </div>
+    </div>
+
+    <!-- Research progress -->
+    <div class="progress-panel glass hide" id="research-progress-panel">
+      <div class="progress-header">
+        <div class="progress-title">
+          <span class="spinner-sm"></span>
+          <span id="research-prog-title">Indexing papers…</span>
+        </div>
+        <span class="progress-pct" id="research-prog-pct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="research-prog-fill"></div>
+      </div>
+      <div class="progress-label" id="research-prog-label">Starting…</div>
+      <div class="progress-log" id="research-prog-log"></div>
+    </div>
+  </div>
+
+  <!-- Library tab -->
+  <div class="rtab-content" id="rtab-library">
+    <div class="library-header">
+      <div class="library-controls">
+        <select id="library-filter" class="filter-select">
+          <option value="">All collections</option>
+        </select>
+        <span class="library-count" id="library-count"></span>
+      </div>
+    </div>
+    <div class="paper-grid" id="library-results">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <h3>Your library is empty</h3>
+        <p>Discover and index papers to build your research library.</p>
+      </div>
+    </div>
+  </div>
+</section>

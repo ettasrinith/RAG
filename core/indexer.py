@@ -135,7 +135,8 @@ def _emit(event: dict, progress_cb) -> None:
 
 def run_indexing(progress_cb=None, repo_path: str | None = None,
                  force_full: bool = False,
-                 stop_event: Event | None = None) -> dict:
+                 stop_event: Event | None = None,
+                 store: VectorStore | None = None) -> dict:
     config = load_config()
 
     repo_name = ""
@@ -192,11 +193,12 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
     rag_cfg = config.get("contextual_rag", {})
     kg_cfg = config.get("knowledge_graph", {})
 
-    store = VectorStore(
-        path=store_cfg["path"],
-        table=store_cfg["table"],
-        dim=emb_cfg["dim"],
-    )
+    if store is None:
+        store = VectorStore(
+            path=store_cfg["path"],
+            table=store_cfg["table"],
+            dim=emb_cfg["dim"],
+        )
 
     sync_state = None
     if sync_cfg.get("enabled", False):
@@ -294,6 +296,11 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
                 if hierarchy:
                     hierarchy_path = "/".join(doc_path.split("/")[:-1]) if "/" in doc_path else ""
 
+                # Track *before* processing so failed files aren't treated as deleted
+                if sync_state and repo_name:
+                    mtime = doc.updated_at.isoformat() if doc.updated_at else ""
+                    current_file_state[doc.metadata.get("path", doc.title)] = mtime
+
                 rows = _doc_to_rows(
                     doc,
                     chunk_size=chunk_cfg["chunk_size"],
@@ -310,10 +317,6 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
                         kg_index.build_from_doc(repo_name, doc.id, doc.content[:5000])
                     except Exception as e:
                         log.warning("KG build_from_doc failed: %s", e)
-
-                if sync_state and repo_name:
-                    mtime = doc.updated_at.isoformat() if doc.updated_at else ""
-                    current_file_state[doc.metadata.get("path", doc.title)] = mtime
 
                 indexed_paths.append(doc_path)
                 connector_paths.append(doc_path)

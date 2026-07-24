@@ -15,8 +15,8 @@ research:
   catalog_path: ./data/research_catalog.json
 connectors:
   github_files:
-    enabled: true
-    mode: local
+    enabled: false
+    mode: youtube
     local_path: data/test_md
     repo: ${GITHUB_REPO}
     pat: ${GITHUB_PAT}
@@ -154,9 +154,10 @@ connectors:
     min_text_chars: 50
     include_body: true
   youtube:
-    enabled: false
+    enabled: true
     label: youtube-transcripts
-    urls: []
+    urls:
+    - https://youtu.be/26c0qgAijv4?si=xCUrt4I02UNMkdnR
     video_ids: []
     languages:
     - en
@@ -186,7 +187,7 @@ contextual_rag:
   summary_prompt: 'Summarize this code snippet in one sentence for search indexing:'
   batch_size: 10
 knowledge_graph:
-  enabled: false
+  enabled: true
   model: en_core_web_sm
   extract_entities: true
   extract_relations: true

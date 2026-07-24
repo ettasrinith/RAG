@@ -138,6 +138,7 @@ def index_papers(
     collection: str = "default",
     progress_cb=None,
     stop_event: Event | None = None,
+    store: VectorStore | None = None,
 ) -> dict:
     """Index selected papers into the research_store.
 
@@ -151,12 +152,13 @@ def index_papers(
     store_path = research_cfg.get("path", "./data/lancedb")
     table_name = research_cfg.get("table", "research")
 
-    store = VectorStore(
-        path=store_path,
-        table=table_name,
-        dim=emb_cfg["dim"],
-        schema_type="research",
-    )
+    if store is None:
+        store = VectorStore(
+            path=store_path,
+            table=table_name,
+            dim=emb_cfg["dim"],
+            schema_type="research",
+        )
 
     catalog_path = config.get("research", {}).get("catalog_path", "./data/research_catalog.json")
     catalog = PaperCatalog(catalog_path)

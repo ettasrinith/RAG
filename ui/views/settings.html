@@ -1,0 +1,55 @@
+<!-- Settings View -->
+<section class="view" id="view-settings">
+  <div class="view-header">
+    <div>
+      <span class="eyebrow">Configuration</span>
+      <h1>Settings</h1>
+    </div>
+  </div>
+
+  <div class="settings-grid">
+    <div class="settings-card glass">
+      <h3>API Key</h3>
+      <p>Set an API key for authenticated access to the Knowledge Hub.</p>
+      <div class="input-row">
+        <input type="password" id="settings-api-key" placeholder="Enter API key…" />
+        <button class="btn btn-secondary" id="settings-save-key">Save</button>
+      </div>
+    </div>
+
+    <div class="settings-card glass">
+      <h3>Appearance</h3>
+      <p>Choose your preferred theme.</p>
+      <div class="theme-options">
+        <label class="theme-option active" data-theme-val="dark">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          Dark
+        </label>
+        <label class="theme-option" data-theme-val="light">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          Light
+        </label>
+        <label class="theme-option" data-theme-val="system">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          System
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-card glass">
+      <h3>Data Management</h3>
+      <p>Clear all indexed data from the vector store.</p>
+      <button class="btn btn-danger" id="settings-clear-btn">Clear All Data</button>
+    </div>
+
+    <div class="settings-card glass">
+      <h3>About</h3>
+      <p>Knowledge Hub v2.0 — Production-grade RAG platform.</p>
+      <div class="about-info">
+        <div class="about-row"><span>Embedding Model</span><span id="about-embedding">—</span></div>
+        <div class="about-row"><span>LLM Model</span><span id="about-llm">—</span></div>
+        <div class="about-row"><span>Status</span><span id="about-status">—</span></div>
+      </div>
+    </div>
+  </div>
+</section>

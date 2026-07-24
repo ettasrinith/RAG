@@ -73,16 +73,68 @@ class YouTubeTranscriptConnector(BaseConnector):
         return ids
 
     def _fetch_transcript(self, video_id: str) -> list[dict]:
-        try:
-            from youtube_transcript_api import YouTubeTranscriptApi
-        except ImportError as exc:
-            raise RuntimeError("youtube-transcript-api is not installed") from exc
+        from youtube_transcript_api import YouTubeTranscriptApi
+        from youtube_transcript_api._errors import NoTranscriptFound
 
+        api = YouTubeTranscriptApi()
+
+        # Strategy 1: Try requested languages natively
+        for lang in self.languages:
+            try:
+                transcript = api.get_transcript(video_id, languages=[lang])
+                if transcript:
+                    return transcript
+            except NoTranscriptFound:
+                continue
+            except Exception:
+                break
+
+        # Strategy 2: Use list_transcripts to find auto-generated or translatable
         try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=self.languages)
+            transcripts = api.list_transcripts(video_id)
         except Exception:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        return transcript or []
+            return []
+
+        # Try to find any requested-language transcript (including translations)
+        for lang in self.languages:
+            try:
+                t = transcripts.find_transcript([lang])
+                return t.fetch()
+            except NoTranscriptFound:
+                continue
+            except Exception:
+                break
+
+        # Try any auto-generated transcript and translate to first requested language
+        try:
+            # find_generated_transcript picks the best auto-generated match
+            gen = transcripts.find_generated_transcript(self.languages)
+            if gen is not None and gen.is_translatable:
+                target_lang = self.languages[0]
+                translated = gen.translate(target_lang)
+                return translated.fetch()
+        except NoTranscriptFound:
+            pass
+        except Exception:
+            pass
+
+        # Strategy 3: Any available generated transcript
+        try:
+            for t in transcripts:
+                if t.is_translatable:
+                    return t.fetch()
+        except Exception:
+            pass
+
+        # Strategy 4: Any available manual transcript
+        try:
+            for t in transcripts:
+                if not t.is_translatable:
+                    return t.fetch()
+        except Exception:
+            pass
+
+        return []
 
     def _fetch_video_metadata(self, video_id: str) -> dict:
         url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"

@@ -1,0 +1,51 @@
+<!-- Search View -->
+<section class="view" id="view-search">
+  <div class="view-header search-view-header">
+    <div>
+      <span class="eyebrow">Semantic + keyword search</span>
+      <h1>Search <span class="gradient-text">Knowledge</span></h1>
+    </div>
+  </div>
+
+  <div class="search-hero">
+    <form class="search-box" id="search-form" autocomplete="off">
+      <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="search-input" placeholder="Search documents, code, papers…" autofocus />
+      <div class="search-shortcuts">
+        <kbd>⌘K</kbd>
+      </div>
+    </form>
+
+    <div class="search-filters" id="search-filters">
+      <div class="filter-group">
+        <select id="filter-source" class="filter-select">
+          <option value="">All sources</option>
+        </select>
+        <select id="filter-repo" class="filter-select">
+          <option value="">All repositories</option>
+        </select>
+        <label class="toggle-switch">
+          <input type="checkbox" id="filter-hybrid" checked />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label">Hybrid search</span>
+        </label>
+      </div>
+      <div class="filter-chips" id="filter-chips"></div>
+    </div>
+  </div>
+
+  <div class="search-results" id="search-results">
+    <div class="empty-state" id="search-empty">
+      <div class="empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <h3>Ask anything</h3>
+      <p>Search across all your indexed documents, code, and research papers.</p>
+      <div class="empty-hints">
+        <span>Press <kbd>/</kbd> to focus search</span>
+        <span>Use filters to narrow results</span>
+      </div>
+    </div>
+    <div class="results-list" id="results-list"></div>
+  </div>
+</section>

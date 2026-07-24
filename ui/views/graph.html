@@ -1,0 +1,71 @@
+<!-- Graph View -->
+<section class="view" id="view-graph">
+  <div class="view-header">
+    <div>
+      <span class="eyebrow">Knowledge Graph</span>
+      <h1>Entity <span class="gradient-text">Relations</span></h1>
+      <p class="view-desc">Visualize entities and relationships across your repos.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" id="graph-refresh" title="Refresh">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="graph-layout">
+    <div class="graph-sidebar glass">
+      <div class="graph-controls">
+        <h4>Repositories</h4>
+        <div id="graph-repo-list" class="graph-repo-list">
+          <div class="empty-sm">Loading…</div>
+        </div>
+        <div class="graph-stats" id="graph-stats">
+          <div class="graph-stat">
+            <span class="stat-num" id="kg-entities">0</span>
+            <span class="stat-label">Entities</span>
+          </div>
+          <div class="graph-stat">
+            <span class="stat-num" id="kg-relations">0</span>
+            <span class="stat-label">Relations</span>
+          </div>
+        </div>
+        <div class="graph-legend">
+          <h4>Entity Types</h4>
+          <div id="graph-legend-items" class="legend-items"></div>
+        </div>
+        <div class="graph-search">
+          <input type="text" id="graph-search-input" placeholder="Search entities…" />
+        </div>
+      </div>
+    </div>
+
+    <div class="graph-main glass">
+      <div class="graph-empty" id="graph-empty">
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="5" cy="19" r="2"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="16.5" y1="5.5" x2="14" y2="8"/><line x1="7.5" y1="5.5" x2="10" y2="8"/><line x1="16.5" y1="18.5" x2="14" y2="16"/><line x1="7.5" y1="18.5" x2="10" y2="16"/></svg>
+        </div>
+        <h3>Select a repository</h3>
+        <p>Choose a repository from the sidebar to visualize its knowledge graph.</p>
+      </div>
+      <div class="graph-canvas" id="graph-canvas" style="display:none"></div>
+      <div class="graph-node-detail glass hide" id="graph-node-detail">
+        <div class="node-detail-header">
+          <h4 id="node-detail-name">—</h4>
+          <button class="btn btn-ghost btn-sm" id="node-detail-close">×</button>
+        </div>
+        <div class="node-detail-body">
+          <div class="node-detail-type">
+            <span class="node-type-badge" id="node-detail-type">—</span>
+          </div>
+          <div class="node-detail-meta" id="node-detail-meta"></div>
+          <div class="node-detail-docs">
+            <h5>Related Documents</h5>
+            <div id="node-detail-docs-list" class="node-docs-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

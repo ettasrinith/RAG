@@ -1,0 +1,181 @@
+<!-- Index View -->
+<section class="view" id="view-index">
+  <div class="view-header">
+    <div>
+      <span class="eyebrow">Data Ingestion</span>
+      <h1>Index your <span class="gradient-text">Sources</span></h1>
+      <p class="view-desc">Import documents from folders, GitHub, YouTube transcripts, or ZIP archives.</p>
+    </div>
+  </div>
+
+  <div class="source-grid">
+    <div class="source-card glass" data-source="folder" tabindex="0">
+      <div class="source-card-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="source-card-body">
+        <h4>Local Folder</h4>
+        <p>Index documents from your machine</p>
+      </div>
+      <div class="source-check">✓</div>
+    </div>
+    <div class="source-card glass" data-source="github" tabindex="0">
+      <div class="source-card-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      </div>
+      <div class="source-card-body">
+        <h4>GitHub Repo</h4>
+        <p>Clone and index a repository</p>
+      </div>
+      <div class="source-check">✓</div>
+    </div>
+    <div class="source-card glass" data-source="zip" tabindex="0">
+      <div class="source-card-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      </div>
+      <div class="source-card-body">
+        <h4>Upload ZIP</h4>
+        <p>Documents, PDFs & code archives</p>
+      </div>
+      <div class="source-check">✓</div>
+    </div>
+    <div class="source-card glass" data-source="youtube" tabindex="0">
+      <div class="source-card-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.13C5.12 19.56 12 19.56 12 19.56s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.43z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+      </div>
+      <div class="source-card-body">
+        <h4>YouTube</h4>
+        <p>Index video transcripts</p>
+      </div>
+      <div class="source-check">✓</div>
+    </div>
+    <div class="source-card glass" data-source="wiki" tabindex="0">
+      <div class="source-card-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>
+      </div>
+      <div class="source-card-body">
+        <h4>Wiki / Confluence</h4>
+        <p>Index Confluence wiki pages</p>
+      </div>
+      <div class="source-check">✓</div>
+    </div>
+  </div>
+
+  <!-- Config panels -->
+  <div class="config-panel" id="panel-folder">
+    <div class="config-field">
+      <label>Folder path</label>
+      <div class="input-row">
+        <input type="text" id="folder-path" placeholder="/path/to/your/documents" />
+        <button class="btn btn-secondary" id="folder-browse">Browse</button>
+      </div>
+      <div class="folder-dropdown" id="folder-dropdown"></div>
+    </div>
+  </div>
+
+  <div class="config-panel" id="panel-github">
+    <div class="config-field">
+      <label>Repository <span class="label-hint">owner/name</span></label>
+      <input type="text" id="github-repo" placeholder="e.g. user/repo" />
+    </div>
+    <div class="config-field">
+      <label>Personal Access Token <span class="label-hint">optional, for private repos</span></label>
+      <input type="password" id="github-pat" placeholder="ghp_…" />
+    </div>
+    <div class="config-field">
+      <label>Branch</label>
+      <input type="text" id="github-branch" placeholder="main" />
+    </div>
+  </div>
+
+  <div class="config-panel" id="panel-zip">
+    <div class="upload-zone" id="upload-zone">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <h4>Drop a ZIP file here</h4>
+      <p>or click to browse — up to 200 MB</p>
+      <input type="file" id="zip-file" accept=".zip" hidden />
+    </div>
+    <div id="upload-status"></div>
+  </div>
+
+  <div class="config-panel" id="panel-youtube">
+    <div class="config-field">
+      <label>YouTube URLs <span class="label-hint">one per line</span></label>
+      <textarea id="youtube-urls" rows="4" placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ&#10;https://youtu.be/abc123def45&#10;https://www.youtube.com/shorts/xyz789"></textarea>
+    </div>
+    <div class="config-field">
+      <label>Video IDs <span class="label-hint">one per line (optional)</span></label>
+      <textarea id="youtube-ids" rows="2" placeholder="dQw4w9WgXcQ&#10;abc123def45"></textarea>
+    </div>
+    <div class="config-field">
+      <label>Languages <span class="label-hint">comma-separated, default: en</span></label>
+      <input type="text" id="youtube-langs" value="en" placeholder="en, es, fr" />
+    </div>
+    <label class="toggle-switch">
+      <input type="checkbox" id="youtube-timestamps" checked />
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      <span class="toggle-label">Include timestamps</span>
+    </label>
+  </div>
+
+  <div class="config-panel" id="panel-wiki">
+    <div class="config-field">
+      <label>Confluence Base URL</label>
+      <input type="text" id="wiki-base-url" placeholder="https://your-domain.atlassian.net/wiki" />
+    </div>
+    <div class="config-field">
+      <label>Email <span class="label-hint">for authentication</span></label>
+      <input type="email" id="wiki-email" placeholder="you@company.com" />
+    </div>
+    <div class="config-field">
+      <label>API Token <span class="label-hint">Confluence API token</span></label>
+      <input type="password" id="wiki-api-token" placeholder="ATATT3xFfGF0..." />
+    </div>
+    <div class="config-field">
+      <label>Spaces <span class="label-hint">comma-separated space keys (optional, leave empty for all)</span></label>
+      <input type="text" id="wiki-spaces" placeholder="ENG, DOCS, PROD" />
+    </div>
+    <div class="config-field">
+      <label>Search Query <span class="label-hint">CQL filter (optional)</span></label>
+      <input type="text" id="wiki-query" placeholder='type=page AND space="ENG"' />
+    </div>
+    <div class="config-field">
+      <label>Max Results</label>
+      <input type="number" id="wiki-max-results" value="200" min="1" max="2000" />
+    </div>
+  </div>
+
+  <div class="index-actions">
+    <label class="toggle-switch">
+      <input type="checkbox" id="force-full" />
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      <span class="toggle-label">Force full re-index</span>
+    </label>
+    <div class="index-buttons">
+      <button class="btn btn-primary" id="index-start-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start Indexing
+      </button>
+      <button class="btn btn-danger" id="index-stop-btn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        Stop
+      </button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-panel glass hide" id="progress-panel">
+    <div class="progress-header">
+      <div class="progress-title">
+        <span class="spinner-sm"></span>
+        <span id="progress-title">Indexing…</span>
+      </div>
+      <span class="progress-pct" id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-label" id="progress-label">Starting…</div>
+    <div class="progress-log" id="progress-log"></div>
+  </div>
+</section>

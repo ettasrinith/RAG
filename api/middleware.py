@@ -22,10 +22,14 @@ def setup_middleware(app: FastAPI, config: dict) -> None:
 
     # 1. CORS (must be outermost)
     cors_config = config.get("cors", {})
+    origins = cors_config.get("origins", [])
+    # allow_origins=["*"] is invalid when allow_credentials=True per the CORS spec.
+    # Use the configured origins list, or fall back to ["*"] only when credentials are off.
+    allow_all_origins = origins == ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_config.get("origins", ["*"]),
-        allow_credentials=True,
+        allow_origins=origins if origins else ["*"],
+        allow_credentials=not allow_all_origins and bool(origins),
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["X-Request-ID", "X-Response-Time"],
@@ -103,12 +107,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
-        window = self._windows.setdefault(client_ip, [])
+        window = self._windows.get(client_ip, [])
 
         # Remove entries older than 60s
         cutoff = now - 60.0
-        self._windows[client_ip] = [t for t in window if t > cutoff]
-        window = self._windows[client_ip]
+        window = [t for t in window if t > cutoff]
+
+        if not window:
+            self._windows.pop(client_ip, None)
+        else:
+            self._windows[client_ip] = window
 
         if len(window) >= self.requests_per_minute:
             return Response(
