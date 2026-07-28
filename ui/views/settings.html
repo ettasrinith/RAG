@@ -7,48 +7,100 @@
     </div>
   </div>
 
-  <div class="settings-grid">
-    <div class="settings-card glass">
-      <h3>API Key</h3>
-      <p>Set an API key for authenticated access to the Knowledge Hub.</p>
-      <div class="input-row">
-        <input type="password" id="settings-api-key" placeholder="Enter API key…" />
-        <button class="btn btn-secondary" id="settings-save-key">Save</button>
-      </div>
-    </div>
-
-    <div class="settings-card glass">
-      <h3>Appearance</h3>
-      <p>Choose your preferred theme.</p>
-      <div class="theme-options">
-        <label class="theme-option active" data-theme-val="dark">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          Dark
-        </label>
-        <label class="theme-option" data-theme-val="light">
+  <div class="settings-list">
+    <!-- Appearance -->
+    <div class="settings-section" data-collapsible>
+      <div class="settings-section-header collapse-toggle">
+        <div class="settings-section-icon" style="--si-bg: var(--purple-soft); --si-fg: var(--purple);">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-          Light
-        </label>
-        <label class="theme-option" data-theme-val="system">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          System
-        </label>
+        </div>
+        <div class="settings-section-title">
+          <h3>Appearance</h3>
+          <span>Theme and display preferences</span>
+        </div>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="collapsible settings-section-body">
+        <div class="theme-options">
+          <label class="theme-option active" data-theme-val="dark">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            Dark
+          </label>
+          <label class="theme-option" data-theme-val="light">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            Light
+          </label>
+          <label class="theme-option" data-theme-val="system">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            System
+          </label>
+        </div>
       </div>
     </div>
 
-    <div class="settings-card glass">
-      <h3>Data Management</h3>
-      <p>Clear all indexed data from the vector store.</p>
-      <button class="btn btn-danger" id="settings-clear-btn">Clear All Data</button>
+    <!-- API Key -->
+    <div class="settings-section" data-collapsible>
+      <div class="settings-section-header collapse-toggle">
+        <div class="settings-section-icon" style="--si-bg: var(--primary-soft); --si-fg: var(--primary);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </div>
+        <div class="settings-section-title">
+          <h3>API Key</h3>
+          <span>Authenticated access to the Knowledge Hub</span>
+        </div>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="collapsible settings-section-body">
+        <div class="input-row">
+          <input type="password" id="settings-api-key" placeholder="Enter API key…" />
+          <button class="btn btn-primary btn-sm" id="settings-save-key">Save</button>
+        </div>
+      </div>
     </div>
 
-    <div class="settings-card glass">
-      <h3>About</h3>
-      <p>Knowledge Hub v2.0 — Production-grade RAG platform.</p>
-      <div class="about-info">
-        <div class="about-row"><span>Embedding Model</span><span id="about-embedding">—</span></div>
-        <div class="about-row"><span>LLM Model</span><span id="about-llm">—</span></div>
-        <div class="about-row"><span>Status</span><span id="about-status">—</span></div>
+    <!-- Data Management -->
+    <div class="settings-section" data-collapsible>
+      <div class="settings-section-header collapse-toggle">
+        <div class="settings-section-icon" style="--si-bg: var(--danger-soft); --si-fg: var(--danger);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </div>
+        <div class="settings-section-title">
+          <h3>Data Management</h3>
+          <span>Clear indexed data from vector store</span>
+        </div>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="collapsible settings-section-body">
+        <div class="settings-danger-zone">
+          <div class="settings-danger-info">
+            <strong>Clear All Data</strong>
+            <span>Permanently removes all indexed documents and embeddings.</span>
+          </div>
+          <button class="btn btn-danger btn-sm" id="settings-clear-btn">Clear All</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- About / System Info -->
+    <div class="settings-section" data-collapsible>
+      <div class="settings-section-header collapse-toggle">
+        <div class="settings-section-icon" style="--si-bg: var(--accent-soft); --si-fg: var(--accent);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <div class="settings-section-title">
+          <h3>About</h3>
+          <span>Knowledge Hub v2.0 — Production RAG platform</span>
+        </div>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="collapsible settings-section-body">
+        <div class="about-info">
+          <div class="about-row"><span>Embedding Model</span><span id="about-embedding">—</span></div>
+          <div class="about-row"><span>LLM Model</span><span id="about-llm">—</span></div>
+          <div class="about-row"><span>Vector Store</span><span id="about-vector">LanceDB</span></div>
+          <div class="about-row"><span>Search Mode</span><span id="about-search">Hybrid (Vector + FTS)</span></div>
+          <div class="about-row"><span>Status</span><span id="about-status">—</span></div>
+        </div>
       </div>
     </div>
   </div>

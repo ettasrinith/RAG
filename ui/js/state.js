@@ -19,7 +19,7 @@ const State = {
 };
 
 /* ── Component Loader ────────────────────────────────────── */
-const VIEWS = ['dashboard', 'search', 'chat', 'index', 'research', 'graph', 'settings', 'admin'];
+const VIEWS = ['dashboard', 'search', 'chat', 'index', 'research', 'tools', 'graph', 'settings', 'admin'];
 const viewCache = {};
 
 async function loadView(viewName) {
@@ -191,7 +191,7 @@ async function navigate(view) {
     await loadView(view);
   }
   // Sidebar
-  qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.nav === view));
   // Views
   qsa('.view').forEach(v => v.classList.remove('active'));
   const target = $('view-' + view);
@@ -206,6 +206,7 @@ async function navigate(view) {
   if (view === 'chat') $('chat-input')?.focus();
   if (view === 'dashboard') refreshDashboard();
   if (view === 'research') { loadCollectionPicker(); loadLibrary(); }
+  if (view === 'tools') { initResearchTools(); }
   if (view === 'settings') loadSettings();
   if (view === 'admin') loadAdmin();
   if (view === 'graph') { loadGraphRepos(); }
@@ -356,6 +357,11 @@ function reattachViewListeners(view) {
     });
   }
 
+  // Tools view listeners
+  if (view === 'tools') {
+    initResearchTools();
+  }
+
   // Graph view listeners
   if (view === 'graph') {
     $('graph-repo-list')?.addEventListener('click', e => {
@@ -448,10 +454,45 @@ function reattachViewListeners(view) {
   }
 }
 
-qsa('.nav-item').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
+qsa('.nav-item').forEach(b => b.addEventListener('click', () => navigate(b.dataset.nav)));
 
 // Quick actions on dashboard
-qsa('.qa-btn[data-view]').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.qa-btn[data-nav], .qa-btn-sm[data-nav]');
+  if (btn) navigate(btn.dataset.nav);
+});
+
+// Sidebar rail collapse toggle
+$('rail-toggle')?.addEventListener('click', () => {
+  const sidebar = $('sidebar');
+  const isCollapsed = sidebar.classList.toggle('collapsed-rail');
+  localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
+});
+// Restore sidebar state
+if (localStorage.getItem('sidebar-collapsed') === '1') {
+  $('sidebar')?.classList.add('collapsed-rail');
+}
+
+// Collapsible panels (event delegation)
+document.addEventListener('click', e => {
+  // Don't collapse when clicking buttons/inputs inside the header
+  if (e.target.closest('button, input, select, a')) return;
+  const toggle = e.target.closest('.collapse-toggle');
+  if (!toggle) return;
+  const panel = toggle.closest('[data-collapsible]');
+  if (!panel) return;
+  const body = panel.querySelector('.collapsible');
+  if (!body) return;
+  const isCollapsed = toggle.classList.toggle('is-collapsed');
+  if (isCollapsed) {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    requestAnimationFrame(() => { body.classList.add('collapsed'); body.style.maxHeight = '0'; });
+  } else {
+    body.classList.remove('collapsed');
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.addEventListener('transitionend', () => { body.style.maxHeight = ''; }, { once: true });
+  }
+});
 
 // Mobile sidebar toggle
 $('sidebar-overlay').addEventListener('click', () => {

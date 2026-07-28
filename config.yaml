@@ -16,7 +16,7 @@ research:
 connectors:
   github_files:
     enabled: false
-    mode: youtube
+    mode: local
     local_path: data/test_md
     repo: ${GITHUB_REPO}
     pat: ${GITHUB_PAT}

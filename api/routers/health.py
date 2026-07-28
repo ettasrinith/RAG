@@ -67,9 +67,11 @@ async def health_check():
         t0 = time.perf_counter()
         session.execute(text("SELECT 1"))
         session.close()
+        latency = (time.perf_counter() - t0) * 1000
         components["database"] = ComponentHealth(
             status="healthy",
-            latency_ms=(time.perf_counter() - t0) * 1000,
+            latency_ms=latency,
+            detail=f"{latency:.0f}ms",
         )
     except Exception as e:
         components["database"] = ComponentHealth(status="unhealthy", detail=str(e))
@@ -77,11 +79,16 @@ async def health_check():
     # Embedding model
     try:
         from core.embedder import get_model
+        from core.config import load_config as _lc
+        _cfg = _lc()
+        model_name = _cfg.get("embedding", {}).get("model", "unknown")
         t0 = time.perf_counter()
         get_model()
+        latency = (time.perf_counter() - t0) * 1000
         components["embedding_model"] = ComponentHealth(
             status="healthy",
-            latency_ms=(time.perf_counter() - t0) * 1000,
+            latency_ms=latency,
+            detail=model_name.split("/")[-1],
         )
     except Exception as e:
         components["embedding_model"] = ComponentHealth(status="degraded", detail=str(e))

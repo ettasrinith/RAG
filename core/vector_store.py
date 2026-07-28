@@ -161,7 +161,7 @@ class VectorStore:
 
         try:
             db_path = str(self._db_path)
-            table_name = self._table_name
+            table_name = self.table_name
             lance_dir = Path(db_path) / f"{table_name}.lance"
             index_dir = lance_dir / "_indices"
 
@@ -310,7 +310,7 @@ class VectorStore:
             return  # Schema already has all columns
 
         log.info("Adding %d columns to table '%s': %s",
-                 len(missing), self._table_name, list(missing.keys()))
+                 len(missing), self.table_name, list(missing.keys()))
 
         data = self.table.to_arrow()
 
@@ -333,14 +333,14 @@ class VectorStore:
             )
 
         # Write to a new table (atomic — old table untouched until swap)
-        migrated_name = f"{self._table_name}_migrated"
+        migrated_name = f"{self.table_name}_migrated"
         self.db.create_table(migrated_name, data, mode="overwrite")
 
         # Swap: drop old table, rename new
-        old_name = self._table_name
+        old_name = self.table_name
         self.db.drop_table(old_name)
         self.table = self.db.open_table(migrated_name)
-        self._table_name = migrated_name
+        self.table_name = migrated_name
 
         self._mark_fts_dirty()  # Schema changed — FTS likely needs rebuild
         log.info("Schema migration complete: %d rows preserved, %d columns added",

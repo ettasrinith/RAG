@@ -89,6 +89,13 @@ class SearchService:
         return collections
 
     def _matches_filter(self, row: dict, condition) -> bool:
+        # Handle OR groups (tuples) — return True if ANY sub-condition matches
+        if isinstance(condition, tuple):
+            return any(self._matches_filter(row, c) for c in condition)
+        # Handle AND groups (lists) — return True only if ALL sub-conditions match
+        if isinstance(condition, list):
+            return all(self._matches_filter(row, c) for c in condition)
+        # Single FilterCondition
         field_map = {
             "source_type": "source",
             "source": "source",

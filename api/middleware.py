@@ -101,12 +101,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._windows: dict[str, list[float]] = {}
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        now = time.time()
+
+        # Prune stale entries when the windows dict grows too large
+        if len(self._windows) > 1000:
+            stale_cutoff = now - 120.0
+            self._windows = {
+                ip: timestamps
+                for ip, timestamps in self._windows.items()
+                if timestamps and timestamps[-1] > stale_cutoff
+            }
+
         # Skip rate limiting for health checks
         if request.url.path in ("/v1/health", "/health", "/v1/health/live"):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
-        now = time.time()
         window = self._windows.get(client_ip, [])
 
         # Remove entries older than 60s

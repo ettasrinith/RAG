@@ -16,7 +16,7 @@ const defaultCard = qs('.source-card[data-source="folder"]');
 if (defaultCard) defaultCard.click();
 
 // Folder browser
-$('folder-browse').addEventListener('click', async () => {
+$('folder-browse')?.addEventListener('click', async () => {
   const dd = $('folder-dropdown');
   if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
   dd.classList.add('open');
@@ -35,7 +35,7 @@ $('folder-browse').addEventListener('click', async () => {
   }
 });
 
-$('folder-dropdown').addEventListener('click', e => {
+$('folder-dropdown')?.addEventListener('click', e => {
   const item = e.target.closest('.folder-item');
   if (!item || !item.dataset.path) return;
   $('folder-path').value = item.dataset.path;
@@ -45,15 +45,15 @@ $('folder-dropdown').addEventListener('click', e => {
 // ZIP upload
 const uz = $('upload-zone');
 const zf = $('zip-file');
-uz.addEventListener('click', () => zf.click());
-uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('dragover'); });
-uz.addEventListener('dragleave', () => uz.classList.remove('dragover'));
-uz.addEventListener('drop', e => {
+if (uz) uz.addEventListener('click', () => zf.click());
+if (uz) uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('dragover'); });
+if (uz) uz.addEventListener('dragleave', () => uz.classList.remove('dragover'));
+if (uz) uz.addEventListener('drop', e => {
   e.preventDefault();
   uz.classList.remove('dragover');
   if (e.dataTransfer.files.length) uploadZipFile(e.dataTransfer.files[0]);
 });
-zf.addEventListener('change', () => { if (zf.files.length) uploadZipFile(zf.files[0]); });
+if (zf) zf.addEventListener('change', () => { if (zf.files.length) uploadZipFile(zf.files[0]); });
 
 async function uploadZipFile(file) {
   if (!/\.zip$/i.test(file.name)) { toast('Not a ZIP', 'Please choose a .zip file.', 'error'); return; }
@@ -162,7 +162,7 @@ function addLog(text, type = '') {
 }
 
 // Start indexing
-$('index-start-btn').addEventListener('click', startIndexing);
+$('index-start-btn')?.addEventListener('click', startIndexing);
 
 async function startIndexing() {
   let repoPath = '';
@@ -219,12 +219,14 @@ async function startIndexing() {
   }
 }
 
-$('index-stop-btn').addEventListener('click', async () => {
+async function stopIndexing() {
   try {
     await api('/sync/stop', { method: 'POST' });
     addLog('Stop requested…');
   } catch (e) {
     toast('Stop failed', e.message, 'error');
   }
-});
+}
+
+$('index-stop-btn')?.addEventListener('click', stopIndexing);
 

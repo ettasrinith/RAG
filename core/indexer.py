@@ -9,6 +9,7 @@ Features:
 """
 from __future__ import annotations
 
+import copy
 import importlib
 import json
 import time
@@ -138,6 +139,7 @@ def run_indexing(progress_cb=None, repo_path: str | None = None,
                  stop_event: Event | None = None,
                  store: VectorStore | None = None) -> dict:
     config = load_config()
+    config = copy.deepcopy(config)
 
     repo_name = ""
     repo_path_resolved = repo_path or ""

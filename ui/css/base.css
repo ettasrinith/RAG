@@ -1,4 +1,4 @@
-/* ── 2. Reset & Base ──────────────────────────────────── */
+/* ── Reset & Base ──────────────────────────────── */
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -8,6 +8,7 @@
 html {
   scroll-behavior: smooth;
   font-size: 15px;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -16,26 +17,40 @@ body {
   color: var(--text);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition: background var(--t-med) var(--ease-in-out), color var(--t-med) var(--ease-in-out);
   min-height: 100vh;
   display: flex;
+  overflow-x: hidden;
 }
 
-/* Subtle dot-grid background */
+/* Ambient background — soft radial glows + faint grid */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(var(--border) 0.5px, transparent 0.5px);
-  background-size: 24px 24px;
-  opacity: 0.4;
+  background:
+    radial-gradient(900px 600px at 12% -8%, var(--primary-soft), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, var(--accent-soft), transparent 55%);
+  opacity: 0.7;
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(var(--border) 0.6px, transparent 0.6px);
+  background-size: 30px 30px;
+  opacity: 0.25;
 }
 
 ::selection {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-radius: 2px;
 }
 
 a {
@@ -43,9 +58,19 @@ a {
   text-decoration: none;
   transition: color var(--t-fast) var(--ease-in-out);
 }
-a:hover { color: var(--primary-strong); text-decoration: underline; }
+a:hover { color: var(--primary-strong); }
+a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
 
-button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  transition: all var(--t-fast) var(--ease-out);
+}
+button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
 input, select, textarea {
   font-family: inherit;
   font-size: inherit;
@@ -55,6 +80,7 @@ input, select, textarea {
   border-radius: var(--r-md);
   padding: 10px 14px;
   outline: none;
+  width: 100%;
   transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
 }
 input:focus, select:focus, textarea:focus {
@@ -63,16 +89,22 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface);
 }
 input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
+  outline: none;
 }
-::placeholder { color: var(--text-muted); }
+::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+textarea { resize: vertical; min-height: 80px; line-height: 1.55; }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
 
 kbd {
   display: inline-flex;
@@ -84,7 +116,22 @@ kbd {
   font-weight: 600;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  color: var(--text-muted);
+  border-bottom-width: 2px;
+  border-radius: var(--r-xs);
+  color: var(--text-dim);
+  line-height: 1.4;
 }
 
+mark {
+  background: var(--amber-soft);
+  color: var(--amber);
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}

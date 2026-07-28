@@ -116,11 +116,14 @@ class FilterParser:
 
     def _combine(self, left, right, operator: str):
         if operator == "AND":
-            if isinstance(left, list) and isinstance(right, list):
-                return left + right
-            elif isinstance(left, list):
+            if isinstance(left, list):
+                if isinstance(right, list):
+                    return left + right
                 return left + [right]
-            elif isinstance(right, list):
+            if isinstance(right, list):
                 return [left] + right
             return [left, right]
-        return [left, right]
+        # OR — flatten into a flat tuple to distinguish from AND lists
+        left_items = list(left) if isinstance(left, tuple) else [left]
+        right_items = list(right) if isinstance(right, tuple) else [right]
+        return tuple(left_items + right_items)

@@ -1,0 +1,226 @@
+<!-- Research Tools View -->
+<section class="view" id="view-tools">
+  <div class="view-header">
+    <div>
+      <span class="eyebrow">AI-Powered Analysis</span>
+      <h1>Research <span class="gradient-text">Tools</span></h1>
+      <p class="view-desc">Deep research, literature review, recommendations & document parsing.</p>
+    </div>
+  </div>
+
+  <!-- Tool Tabs -->
+  <div class="research-tabs" id="tools-tabs">
+    <button class="research-tab active" data-ttab="deep-research">Deep Research</button>
+    <button class="research-tab" data-ttab="lit-review">Literature Review</button>
+    <button class="research-tab" data-ttab="recommend">Recommendations</button>
+    <button class="research-tab" data-ttab="parse">Doc Parser</button>
+  </div>
+
+  <!-- ═══ Deep Research Tab ═══════════════════════════════ -->
+  <div class="ttab-content active" id="ttab-deep-research">
+    <form class="tool-form" id="deep-research-form">
+      <div class="tool-input-group">
+        <label class="tool-label">Research Question</label>
+        <div class="tool-input-row">
+          <textarea id="dr-question" rows="3" placeholder="e.g. What are the latest advances in retrieval-augmented generation for academic research? How do different approaches compare?"></textarea>
+        </div>
+        <div class="tool-controls">
+          <label class="dc-field">
+            <span>Depth</span>
+            <select id="dr-depth">
+              <option value="2">Quick (2 sub-queries)</option>
+              <option value="3" selected>Standard (3 sub-queries)</option>
+              <option value="4">Deep (4 sub-queries)</option>
+              <option value="5">Exhaustive (5 sub-queries)</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" id="dr-submit" type="submit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            Research
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Progress -->
+    <div class="tool-progress hide" id="dr-progress">
+      <div class="tool-progress-header">
+        <span class="spinner-sm"></span>
+        <span id="dr-progress-msg">Starting research…</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="dr-progress-fill"></div></div>
+      <div class="dr-steps" id="dr-steps"></div>
+    </div>
+
+    <!-- Results -->
+    <div class="tool-results hide" id="dr-results">
+      <div class="tool-results-header">
+        <h3>Research Report</h3>
+        <div class="tool-results-meta">
+          <span class="badge" id="dr-papers-count"></span>
+          <span class="badge" id="dr-duration"></span>
+          <button class="btn btn-secondary btn-sm" id="dr-copy">Copy Report</button>
+        </div>
+      </div>
+      <div class="tool-report" id="dr-report"></div>
+      <div class="tool-sources" id="dr-sources"></div>
+    </div>
+  </div>
+
+  <!-- ═══ Literature Review Tab ═══════════════════════════ -->
+  <div class="ttab-content" id="ttab-lit-review">
+    <form class="tool-form" id="lit-review-form">
+      <div class="tool-input-group">
+        <label class="tool-label">Topic / Research Area</label>
+        <div class="tool-input-row">
+          <input type="text" id="lr-topic" placeholder="e.g. Graph neural networks for molecular property prediction" />
+        </div>
+        <div class="tool-controls">
+          <label class="dc-field">
+            <span>Length</span>
+            <select id="lr-length">
+              <option value="400-600">Short (400-600)</option>
+              <option value="800-1200" selected>Medium (800-1200)</option>
+              <option value="1500-2000">Long (1500-2000)</option>
+            </select>
+          </label>
+          <label class="dc-field">
+            <span>Max Papers</span>
+            <input type="number" id="lr-max-papers" value="15" min="3" max="50" />
+          </label>
+          <label class="src-tgl active" id="lr-external-tgl">
+            <input type="checkbox" id="lr-external" checked /> External Sources
+          </label>
+          <button class="btn btn-primary" id="lr-submit" type="submit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Generate Review
+          </button>
+        </div>
+        <div class="tool-focus-row">
+          <label class="tool-label">Custom Focus (optional)</label>
+          <input type="text" id="lr-focus" placeholder="e.g. Focus on methodology comparison and datasets used" />
+        </div>
+      </div>
+    </form>
+
+    <!-- Progress -->
+    <div class="tool-progress hide" id="lr-progress">
+      <div class="tool-progress-header">
+        <span class="spinner-sm"></span>
+        <span id="lr-progress-msg">Gathering papers…</span>
+      </div>
+      <div class="lr-papers-found" id="lr-papers-found"></div>
+    </div>
+
+    <!-- Results -->
+    <div class="tool-results hide" id="lr-results">
+      <div class="tool-results-header">
+        <h3>Literature Review</h3>
+        <div class="tool-results-meta">
+          <span class="badge" id="lr-word-count"></span>
+          <span class="badge" id="lr-duration"></span>
+          <button class="btn btn-secondary btn-sm" id="lr-copy">Copy Review</button>
+        </div>
+      </div>
+      <div class="tool-report" id="lr-report"></div>
+    </div>
+  </div>
+
+  <!-- ═══ Recommendations Tab ═════════════════════════════ -->
+  <div class="ttab-content" id="ttab-recommend">
+    <form class="tool-form" id="recommend-form">
+      <div class="tool-input-group">
+        <label class="tool-label">Seed Paper Title</label>
+        <div class="tool-input-row">
+          <input type="text" id="rec-title" placeholder="e.g. Attention Is All You Need" />
+        </div>
+        <div class="tool-optional-fields">
+          <input type="text" id="rec-authors" placeholder="Authors (optional)" />
+          <textarea id="rec-abstract" rows="2" placeholder="Abstract (optional, improves recommendations)"></textarea>
+        </div>
+        <div class="tool-controls">
+          <label class="dc-field">
+            <span>Strategy</span>
+            <select id="rec-strategy">
+              <option value="hybrid" selected>Hybrid (all signals)</option>
+              <option value="semantic">Semantic only</option>
+              <option value="author">Author-based</option>
+              <option value="topic">Topic keywords</option>
+            </select>
+          </label>
+          <label class="dc-field">
+            <span>Count</span>
+            <input type="number" id="rec-count" value="10" min="1" max="50" />
+          </label>
+          <button class="btn btn-primary" id="rec-submit" type="submit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            Recommend
+          </button>
+          <button class="btn btn-secondary" id="rec-path-btn" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Reading Path
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Results -->
+    <div class="tool-results hide" id="rec-results">
+      <div class="tool-results-header">
+        <h3 id="rec-results-title">Recommendations</h3>
+        <span class="badge" id="rec-count-badge"></span>
+      </div>
+      <div class="rec-grid" id="rec-grid"></div>
+    </div>
+
+    <!-- Reading Path -->
+    <div class="tool-results hide" id="rec-path-results">
+      <div class="tool-results-header">
+        <h3>Suggested Reading Path</h3>
+      </div>
+      <div class="reading-path" id="reading-path"></div>
+    </div>
+  </div>
+
+  <!-- ═══ Document Parser Tab ═════════════════════════════ -->
+  <div class="ttab-content" id="ttab-parse">
+    <form class="tool-form" id="parse-form">
+      <div class="tool-input-group">
+        <label class="tool-label">Document Content or Upload</label>
+        <div class="parse-upload-area" id="parse-drop-zone">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Drop a PDF/image here or <label class="link-label" for="parse-file-input">browse</label></p>
+          <span class="parse-hint">Supports PDF, PNG, JPG, TXT, MD</span>
+          <input type="file" id="parse-file-input" accept=".pdf,.png,.jpg,.jpeg,.txt,.md" hidden />
+        </div>
+        <div class="parse-or">— or paste content —</div>
+        <textarea id="parse-content" rows="6" placeholder="Paste document text here to extract tables, structure, and metadata…"></textarea>
+        <div class="tool-controls">
+          <label class="src-tgl active" id="parse-tables-tgl">
+            <input type="checkbox" id="parse-tables" checked /> Extract Tables
+          </label>
+          <label class="src-tgl" id="parse-llm-tgl">
+            <input type="checkbox" id="parse-llm" /> LLM Structuring
+          </label>
+          <button class="btn btn-primary" id="parse-submit" type="submit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Parse
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Results -->
+    <div class="tool-results hide" id="parse-results">
+      <div class="tool-results-header">
+        <h3>Parsed Document</h3>
+        <div class="tool-results-meta">
+          <span class="badge" id="parse-method"></span>
+          <span class="badge" id="parse-pages"></span>
+          <span class="badge" id="parse-table-count"></span>
+        </div>
+      </div>
+      <div class="parse-output" id="parse-output"></div>
+    </div>
+  </div>
+</section>

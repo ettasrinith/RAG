@@ -1,0 +1,120 @@
+/* ════════════════════════════════════════════════════════════
+   Animations — staggered reveals, micro-interactions, transitions
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Staggered card reveal ───────────────────── */
+@keyframes card-reveal {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.stat-inline {
+  animation: card-reveal 0.3s var(--ease-smooth) both;
+}
+.stat-inline:nth-child(1) { animation-delay: 0ms; }
+.stat-inline:nth-child(2) { animation-delay: 40ms; }
+.stat-inline:nth-child(3) { animation-delay: 80ms; }
+.stat-inline:nth-child(4) { animation-delay: 120ms; }
+
+.stat-card {
+  animation: card-reveal 0.3s var(--ease-smooth) both;
+}
+.stat-card:nth-child(1) { animation-delay: 0ms; }
+.stat-card:nth-child(2) { animation-delay: 40ms; }
+.stat-card:nth-child(3) { animation-delay: 80ms; }
+.stat-card:nth-child(4) { animation-delay: 120ms; }
+
+.dash-panel {
+  animation: card-reveal 0.35s var(--ease-smooth) both;
+}
+.dash-panel:nth-child(1) { animation-delay: 80ms; }
+.dash-panel:nth-child(2) { animation-delay: 140ms; }
+
+.settings-card {
+  animation: card-reveal 0.3s var(--ease-smooth) both;
+}
+.settings-card:nth-child(1) { animation-delay: 0ms; }
+.settings-card:nth-child(2) { animation-delay: 50ms; }
+.settings-card:nth-child(3) { animation-delay: 100ms; }
+.settings-card:nth-child(4) { animation-delay: 150ms; }
+
+.admin-card {
+  animation: card-reveal 0.3s var(--ease-smooth) both;
+}
+.admin-card:nth-child(1) { animation-delay: 0ms; }
+.admin-card:nth-child(2) { animation-delay: 50ms; }
+.admin-card:nth-child(3) { animation-delay: 100ms; }
+.admin-card:nth-child(4) { animation-delay: 150ms; }
+
+/* ── Hover micro-interactions ────────────────── */
+.nav-item:hover { transform: translateX(2px); }
+.stat-inline:hover { transform: translateY(-1px); }
+.stat-card:hover { transform: translateY(-2px); }
+.qa-btn-sm:hover svg { transform: scale(1.1); }
+.qa-btn:hover svg { transform: scale(1.1); }
+
+/* ── Smooth page transitions ─────────────────── */
+.view.active {
+  animation: view-enter 0.25s var(--ease-smooth);
+}
+
+/* ── List item stagger ───────────────────────── */
+@keyframes list-item-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.admin-list-item {
+  animation: list-item-in 0.2s var(--ease-smooth) both;
+}
+.admin-list-item:nth-child(1) { animation-delay: 0ms; }
+.admin-list-item:nth-child(2) { animation-delay: 30ms; }
+.admin-list-item:nth-child(3) { animation-delay: 60ms; }
+.admin-list-item:nth-child(4) { animation-delay: 90ms; }
+.admin-list-item:nth-child(5) { animation-delay: 120ms; }
+.admin-list-item:nth-child(6) { animation-delay: 150ms; }
+
+/* ── Search results stagger ──────────────────── */
+.result-card {
+  animation: card-reveal 0.25s var(--ease-smooth) both;
+}
+.result-card:nth-child(1) { animation-delay: 0ms; }
+.result-card:nth-child(2) { animation-delay: 40ms; }
+.result-card:nth-child(3) { animation-delay: 80ms; }
+.result-card:nth-child(4) { animation-delay: 120ms; }
+.result-card:nth-child(5) { animation-delay: 160ms; }
+
+/* ── Fade-in utility ─────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fade-in 0.2s var(--ease-smooth);
+}
+
+/* ── Scale-in utility ────────────────────────── */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.scale-in {
+  animation: scale-in 0.2s var(--ease-smooth);
+}
+
+/* ── Slide-up utility ────────────────────────── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-up {
+  animation: slide-up 0.25s var(--ease-smooth);
+}
+
+/* ── Reduced motion preference ───────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

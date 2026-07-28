@@ -7,6 +7,7 @@ pyyaml==6.0.2
 
 # Vector store + embeddings + reranking
 lancedb==0.13.0
+tantivy==0.26.0
 sentence-transformers==3.2.1
 einops==0.8.0
 

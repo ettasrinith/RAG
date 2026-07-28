@@ -197,21 +197,22 @@ $('chat-suggestions')?.addEventListener('click', e => {
   sendChatMessage();
 });
 
-$('chat-input').addEventListener('keydown', e => {
+$('chat-input')?.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
 });
-$('chat-input').addEventListener('input', () => {
-  $('chat-send-btn').disabled = !$('chat-input').value.trim();
+$('chat-input')?.addEventListener('input', () => {
+  const btn = $('chat-send-btn');
+  if (btn) btn.disabled = !$('chat-input').value.trim();
 });
-$('chat-send-btn').addEventListener('click', sendChatMessage);
-$('chat-new-btn').addEventListener('click', () => {
+$('chat-send-btn')?.addEventListener('click', sendChatMessage);
+$('chat-new-btn')?.addEventListener('click', () => {
   currentSessionId = null;
   clearChatMessages();
   loadSessions();
 });
 
 // Message feedback
-$('chat-messages').addEventListener('click', e => {
+$('chat-messages')?.addEventListener('click', e => {
   const fb = e.target.closest('.fb-btn');
   if (!fb) return;
   const msgEl = fb.closest('.msg');

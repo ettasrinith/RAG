@@ -19,11 +19,11 @@ async function loadAdminHealth() {
     $('ah-uptime').textContent = r.uptime_s ? formatDuration(r.uptime_s) : '—';
     if (r.components) {
       const vs = r.components.vector_store;
-      $('ah-vector').textContent = vs ? `${vs.status} (${vs.detail || ''})` : '—';
+      $('ah-vector').textContent = vs ? (vs.detail ? `${vs.status} (${vs.detail})` : vs.status) : '—';
       const db = r.components.database;
-      $('ah-db').textContent = db ? `${db.status} (${db.detail || ''})` : '—';
+      $('ah-db').textContent = db ? (db.detail ? `${db.status} (${db.detail})` : db.status) : '—';
       const em = r.components.embedding_model;
-      $('ah-embedding').textContent = em ? `${em.status} (${em.detail || ''})` : '—';
+      $('ah-embedding').textContent = em ? (em.detail ? `${em.status} (${em.detail})` : em.status) : '—';
     }
   } catch (e) {
     $('ah-status').textContent = 'unreachable';
@@ -143,15 +143,19 @@ async function loadAdminTools() {
       el.innerHTML = '<div class="empty-sm">No agent tools loaded</div>';
       return;
     }
-    el.innerHTML = tools.map(t => `
+    el.innerHTML = tools.map(t => {
+      const cat = (t.category || 'general').toLowerCase();
+      const catClass = ['search','analysis','utility','research'].includes(cat) ? ' cat-' + cat : ' cat-general';
+      return `
       <div class="admin-list-item">
         <div>
           <span class="admin-item-name">${esc(t.name)}</span>
-          <span class="admin-item-meta">${esc(t.description).slice(0, 80)}${t.description.length > 80 ? '...' : ''}</span>
+          <span class="admin-item-meta">${esc(t.description).slice(0, 80)}${t.description.length > 80 ? '…' : ''}</span>
         </div>
-        <span class="admin-badge idle">${esc(t.category || 'general')}</span>
+        <span class="admin-badge${catClass}">${esc(t.category || 'general')}</span>
       </div>
-    `).join('');
+    `;
+    }).join('');
   } catch (e) {
     el.innerHTML = '<div class="empty-sm">Failed to load tools</div>';
   }

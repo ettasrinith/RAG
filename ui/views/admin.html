@@ -9,142 +9,175 @@
 
   <div class="admin-grid">
     <!-- Health & Status -->
-    <div class="admin-card glass">
-      <div class="admin-card-header">
+    <div class="admin-card glass" data-collapsible>
+      <div class="admin-card-header collapse-toggle">
         <h3>System Health</h3>
-        <button class="btn btn-ghost btn-sm" id="admin-health-refresh">Refresh</button>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost btn-sm" id="admin-health-refresh">Refresh</button>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
       </div>
-      <div id="admin-health-status" class="admin-health-grid">
-        <div class="admin-health-item">
-          <span class="admin-dot" id="ah-health-dot"></span>
-          <span>System: <strong id="ah-status">—</strong></span>
-        </div>
-        <div class="admin-health-item">
-          <span>Uptime: <strong id="ah-uptime">—</strong></span>
-        </div>
-        <div class="admin-health-item">
-          <span>Vector Store: <strong id="ah-vector">—</strong></span>
-        </div>
-        <div class="admin-health-item">
-          <span>Database: <strong id="ah-db">—</strong></span>
-        </div>
-        <div class="admin-health-item">
-          <span>Embedding Model: <strong id="ah-embedding">—</strong></span>
+      <div class="collapsible">
+        <div id="admin-health-status" class="admin-health-grid">
+          <div class="admin-health-item">
+            <span class="admin-dot" id="ah-health-dot"></span>
+            <span>System: <strong id="ah-status">—</strong></span>
+          </div>
+          <div class="admin-health-item">
+            <span>Uptime: <strong id="ah-uptime">—</strong></span>
+          </div>
+          <div class="admin-health-item">
+            <span>Vector Store: <strong id="ah-vector">—</strong></span>
+          </div>
+          <div class="admin-health-item">
+            <span>Database: <strong id="ah-db">—</strong></span>
+          </div>
+          <div class="admin-health-item">
+            <span>Embedding Model: <strong id="ah-embedding">—</strong></span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Connectors -->
-    <div class="admin-card glass">
-      <div class="admin-card-header">
+    <div class="admin-card glass" data-collapsible>
+      <div class="admin-card-header collapse-toggle">
         <h3>Connectors</h3>
-        <button class="btn btn-ghost btn-sm" id="admin-connectors-refresh">Refresh</button>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost btn-sm" id="admin-connectors-refresh">Refresh</button>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
       </div>
-      <div id="admin-connectors-list" class="admin-list">
-        <div class="empty-sm">Loading connectors...</div>
+      <div class="collapsible">
+        <div id="admin-connectors-list" class="admin-list">
+          <div class="empty-sm">Loading connectors...</div>
+        </div>
       </div>
     </div>
 
     <!-- Models & Config -->
-    <div class="admin-card glass">
-      <div class="admin-card-header">
+    <div class="admin-card glass" data-collapsible>
+      <div class="admin-card-header collapse-toggle">
         <h3>Models & Configuration</h3>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
-      <div class="admin-config-grid">
-        <div class="admin-config-item">
-          <label>Embedding Model</label>
-          <select id="admin-embed-model" class="input">
-            <option value="nomic-ai/nomic-embed-text-v1">nomic-embed-text-v1 (768d)</option>
-            <option value="BAAI/bge-small-en-v1.5">bge-small-en-v1.5 (384d)</option>
-            <option value="BAAI/bge-base-en-v1.5">bge-base-en-v1.5 (768d)</option>
-            <option value="BAAI/bge-large-en-v1.5">bge-large-en-v1.5 (1024d)</option>
-            <option value="sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (384d)</option>
-          </select>
+      <div class="collapsible">
+        <div class="admin-config-grid">
+          <div class="admin-config-item">
+            <label>Embedding Model</label>
+            <select id="admin-embed-model" class="input">
+              <option value="nomic-ai/nomic-embed-text-v1">nomic-embed-text-v1 (768d)</option>
+              <option value="BAAI/bge-small-en-v1.5">bge-small-en-v1.5 (384d)</option>
+              <option value="BAAI/bge-base-en-v1.5">bge-base-en-v1.5 (768d)</option>
+              <option value="BAAI/bge-large-en-v1.5">bge-large-en-v1.5 (1024d)</option>
+              <option value="sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (384d)</option>
+            </select>
+          </div>
+          <div class="admin-config-item">
+            <label>LLM Provider</label>
+            <select id="admin-llm-provider" class="input">
+              <option value="anthropic">Anthropic</option>
+              <option value="openai">OpenAI</option>
+              <option value="litellm">LiteLLM</option>
+              <option value="ollama">Ollama (local)</option>
+            </select>
+          </div>
+          <div class="admin-config-item">
+            <label>LLM Model</label>
+            <input type="text" id="admin-llm-model" class="input" placeholder="claude-sonnet-latest" />
+          </div>
+          <div class="admin-config-item">
+            <label>Chunk Size (tokens)</label>
+            <input type="number" id="admin-chunk-size" class="input" value="512" min="64" max="8192" />
+          </div>
+          <div class="admin-config-item">
+            <label>Chunk Overlap</label>
+            <input type="number" id="admin-chunk-overlap" class="input" value="50" min="0" max="1000" />
+          </div>
+          <div class="admin-config-item">
+            <label>Search Rerank</label>
+            <select id="admin-rerank" class="input">
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </div>
         </div>
-        <div class="admin-config-item">
-          <label>LLM Provider</label>
-          <select id="admin-llm-provider" class="input">
-            <option value="anthropic">Anthropic</option>
-            <option value="openai">OpenAI</option>
-            <option value="litellm">LiteLLM</option>
-            <option value="ollama">Ollama (local)</option>
-          </select>
+        <div class="admin-actions">
+          <button class="btn btn-primary btn-sm" id="admin-save-config">Save Configuration</button>
         </div>
-        <div class="admin-config-item">
-          <label>LLM Model</label>
-          <input type="text" id="admin-llm-model" class="input" placeholder="claude-sonnet-latest" />
-        </div>
-        <div class="admin-config-item">
-          <label>Chunk Size (tokens)</label>
-          <input type="number" id="admin-chunk-size" class="input" value="512" min="64" max="8192" />
-        </div>
-        <div class="admin-config-item">
-          <label>Chunk Overlap</label>
-          <input type="number" id="admin-chunk-overlap" class="input" value="50" min="0" max="1000" />
-        </div>
-        <div class="admin-config-item">
-          <label>Search Rerank</label>
-          <select id="admin-rerank" class="input">
-            <option value="true">Enabled</option>
-            <option value="false">Disabled</option>
-          </select>
-        </div>
-      </div>
-      <div class="admin-actions">
-        <button class="btn btn-primary btn-sm" id="admin-save-config">Save Configuration</button>
       </div>
     </div>
 
     <!-- Collections -->
-    <div class="admin-card glass">
-      <div class="admin-card-header">
+    <div class="admin-card glass" data-collapsible>
+      <div class="admin-card-header collapse-toggle">
         <h3>Collections</h3>
-        <button class="btn btn-ghost btn-sm" id="admin-collections-refresh">Refresh</button>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost btn-sm" id="admin-collections-refresh">Refresh</button>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
       </div>
-      <div id="admin-collections-list" class="admin-list">
-        <div class="empty-sm">Loading collections...</div>
+      <div class="collapsible">
+        <div id="admin-collections-list" class="admin-list">
+          <div class="empty-sm">Loading collections...</div>
+        </div>
       </div>
     </div>
 
     <!-- Jobs -->
-    <div class="admin-card glass">
-      <div class="admin-card-header">
+    <div class="admin-card glass" data-collapsible>
+      <div class="admin-card-header collapse-toggle">
         <h3>Indexing Jobs</h3>
-        <button class="btn btn-ghost btn-sm" id="admin-jobs-refresh">Refresh</button>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost btn-sm" id="admin-jobs-refresh">Refresh</button>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
       </div>
-      <div id="admin-jobs-list" class="admin-list">
-        <div class="empty-sm">Loading jobs...</div>
+      <div class="collapsible">
+        <div id="admin-jobs-list" class="admin-list">
+          <div class="empty-sm">Loading jobs...</div>
+        </div>
       </div>
     </div>
 
     <!-- Cache Stats -->
-    <div class="admin-card glass">
-      <div class="admin-card-header">
+    <div class="admin-card glass" data-collapsible>
+      <div class="admin-card-header collapse-toggle">
         <h3>Cache Performance</h3>
-        <button class="btn btn-ghost btn-sm" id="admin-cache-refresh">Refresh</button>
-      </div>
-      <div id="admin-cache-stats" class="admin-cache-grid">
-        <div class="admin-cache-item">
-          <label>Embedding Cache</label>
-          <span id="ac-embed-hits">0</span> hits / <span id="ac-embed-misses">0</span> misses
-          <div class="admin-progress"><div class="admin-progress-bar" id="ac-embed-rate"></div></div>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost btn-sm" id="admin-cache-refresh">Refresh</button>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        <div class="admin-cache-item">
-          <label>Search Cache</label>
-          <span id="ac-search-hits">0</span> hits / <span id="ac-search-misses">0</span> misses
-          <div class="admin-progress"><div class="admin-progress-bar" id="ac-search-rate"></div></div>
+      </div>
+      <div class="collapsible">
+        <div id="admin-cache-stats" class="admin-cache-grid">
+          <div class="admin-cache-item">
+            <label>Embedding Cache</label>
+            <span id="ac-embed-hits">0</span> hits / <span id="ac-embed-misses">0</span> misses
+            <div class="admin-progress"><div class="admin-progress-bar" id="ac-embed-rate"></div></div>
+          </div>
+          <div class="admin-cache-item">
+            <label>Search Cache</label>
+            <span id="ac-search-hits">0</span> hits / <span id="ac-search-misses">0</span> misses
+            <div class="admin-progress"><div class="admin-progress-bar" id="ac-search-rate"></div></div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Agent Tools -->
-    <div class="admin-card glass">
-      <div class="admin-card-header">
+    <div class="admin-card glass" data-collapsible>
+      <div class="admin-card-header collapse-toggle">
         <h3>Agent Tools</h3>
-        <button class="btn btn-ghost btn-sm" id="admin-tools-refresh">Refresh</button>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost btn-sm" id="admin-tools-refresh">Refresh</button>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
       </div>
-      <div id="admin-tools-list" class="admin-list">
-        <div class="empty-sm">Loading tools...</div>
+      <div class="collapsible">
+        <div id="admin-tools-list" class="admin-list">
+          <div class="empty-sm">Loading tools...</div>
+        </div>
       </div>
     </div>
   </div>

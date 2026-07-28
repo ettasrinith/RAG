@@ -5,18 +5,16 @@ async function refreshDashboard() {
     const health = await api('/health');
     const repos = await api('/repos');
 
-    $('stat-docs').textContent = health.rows != null ? health.rows.toLocaleString() : '—';
-    $('stat-repos').textContent = (repos.repos || []).length || '—';
-    $('stat-papers').textContent = health.research_rows != null ? health.research_rows.toLocaleString() : '—';
-    $('stat-chats').textContent = health.llm_model || '—';
-
-    // About info
-    $('about-embedding').textContent = health.embedding_model || '—';
-    $('about-llm').textContent = health.llm_model || '—';
-    $('about-status').textContent = health.ok ? 'Online' : '—';
+    const repoCount = (repos.repos || []).length;
+    const el = id => $(id);
+    if (el('stat-docs')) el('stat-docs').textContent = health.rows != null ? health.rows.toLocaleString() : '0';
+    if (el('stat-repos')) el('stat-repos').textContent = repoCount > 0 ? String(repoCount) : '0';
+    if (el('stat-papers')) el('stat-papers').textContent = health.research_rows != null ? health.research_rows.toLocaleString() : '0';
+    if (el('stat-model')) el('stat-model').textContent = health.llm_model || 'N/A';
 
     // Repo chart
     const chartEl = $('dash-repo-chart');
+    if (!chartEl) return;
     const counts = repos.counts || {};
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
     if (entries.length) {
@@ -34,13 +32,15 @@ async function refreshDashboard() {
 
     // Activity
     const activityEl = $('dash-activity');
-    activityEl.innerHTML = [
-      { type: 'index', text: 'Index has ' + (health.rows || 0) + ' documents' },
-      { type: 'search', text: 'Search across ' + ((repos.repos || []).length || 0) + ' repos' },
-      { type: 'chat', text: 'LLM: ' + (health.llm_model || 'N/A') },
-    ].map(a =>
-      '<div class="activity-item"><span class="activity-dot ' + a.type + '"></span>' + esc(a.text) + '</div>'
-    ).join('');
+    if (activityEl) {
+      activityEl.innerHTML = [
+        { type: 'index', text: 'Index has ' + (health.rows || 0) + ' documents' },
+        { type: 'search', text: 'Search across ' + ((repos.repos || []).length || 0) + ' repos' },
+        { type: 'chat', text: 'LLM: ' + (health.llm_model || 'N/A') },
+      ].map(a =>
+        '<div class="activity-item"><span class="activity-dot ' + a.type + '"></span>' + esc(a.text) + '</div>'
+      ).join('');
+    }
 
   } catch (e) {
     toast('Dashboard Error', e.message, 'error');
@@ -62,6 +62,7 @@ const SOURCE_LABELS = [
 
 (function initSourceFilter() {
   const sel = $('filter-source');
+  if (!sel) return;
   SOURCE_LABELS.forEach(([v, l]) => {
     const o = document.createElement('option');
     o.value = v;
@@ -74,6 +75,7 @@ async function loadRepoFilter() {
   try {
     const { repos, counts } = await api('/repos');
     const sel = $('filter-repo');
+    if (!sel) return;
     sel.innerHTML = '<option value="">All repositories</option>';
     (repos || []).forEach(r => {
       const o = document.createElement('option');

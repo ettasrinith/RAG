@@ -29,7 +29,7 @@ function authorsStr(p) {
 }
 
 // Discover
-$('discover-form').addEventListener('submit', e => { e.preventDefault(); doDiscover(); });
+$('discover-form')?.addEventListener('submit', e => { e.preventDefault(); doDiscover(); });
 
 async function doDiscover() {
   const q = $('discover-query').value.trim();
@@ -94,7 +94,7 @@ function sortPapers(list) {
   return a;
 }
 
-$('discover-sort').addEventListener('change', () => {
+$('discover-sort')?.addEventListener('change', () => {
   if (State.discovered.length) {
     renderPapers(sortPapers(State.discovered), $('discover-results'), false, $('discover-query').value.trim());
   }
@@ -136,7 +136,7 @@ function renderPapers(papers, host, isLibrary, q) {
 }
 
 // Selection
-$('discover-results').addEventListener('change', e => {
+$('discover-results')?.addEventListener('change', e => {
   const cb = e.target.closest('input[type=checkbox][data-id]');
   if (!cb) return;
   const id = cb.dataset.id;
@@ -148,7 +148,7 @@ $('discover-results').addEventListener('change', e => {
   updateSelectionCount();
 });
 
-$('discover-results').addEventListener('click', e => {
+$('discover-results')?.addEventListener('click', e => {
   const one = e.target.closest('[data-indexone]');
   if (one) indexSinglePaper(one.dataset.indexone, one.dataset.title);
 });
@@ -227,7 +227,7 @@ async function streamIndexPapers(papers, collection) {
   });
 }
 
-$('index-selected-btn').addEventListener('click', async () => {
+$('index-selected-btn')?.addEventListener('click', async () => {
   if (!State.selectedPapers.size) { toast('No papers', 'Select papers to index first.', 'error'); return; }
   const collection = $('collection-picker').value || 'default';
   try {
@@ -296,9 +296,9 @@ async function loadLibrary() {
   }
 }
 
-$('library-filter').addEventListener('change', loadLibrary);
+$('library-filter')?.addEventListener('change', loadLibrary);
 
-$('library-results').addEventListener('click', async e => {
+$('library-results')?.addEventListener('click', async e => {
   const btn = e.target.closest('[data-del]');
   if (!btn) return;
   if (!confirm('Remove this paper from the research library?')) return;

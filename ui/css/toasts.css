@@ -1,8 +1,8 @@
-/* ── 16. Toasts ──────────────────────────────────────── */
+/* ── Toasts ────────────────────────────────── */
 #toast-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 20px;
+  right: 20px;
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -18,8 +18,10 @@
   align-items: flex-start;
   gap: 10px;
   padding: 12px 16px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
   border-left: 3px solid var(--primary);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-lg);
@@ -60,7 +62,7 @@
   to { width: 0%; }
 }
 
-/* ── 17. Misc utilities ──────────────────────────────── */
+/* ── Misc utilities ──────────────────────────── */
 .hide { display: none !important; }
 
 /* Tooltip via data-tooltip attribute */
@@ -149,3 +151,99 @@
 .skeleton-line:nth-child(3) { width: 70%; }
 .skeleton-line:nth-child(4) { width: 40%; margin-bottom: 0; }
 
+/* ── Inline Citations ─────────────────────────── */
+.citation {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+.citation:hover {
+  background: var(--primary-soft);
+  text-decoration: underline;
+}
+
+/* ── Message Feedback ─────────────────────── */
+.msg-feedback {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+.msg:hover .msg-feedback { opacity: 1; }
+.fb-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.fb-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.fb-btn.selected { background: var(--primary-soft); border-color: var(--primary); }
+
+/* ── Source Panel Enhancements ─────────────── */
+.si-num {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 12px;
+  min-width: 24px;
+}
+.si-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.si-snippet {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.si-link {
+  font-size: 11px;
+  color: var(--primary);
+  text-decoration: none;
+}
+.si-link:hover { text-decoration: underline; }
+.source-item {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+.source-item:last-child { border-bottom: none; }
+
+/* ── File Attachment Bar ──────────────────── */
+.chat-attachment-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid var(--border);
+}
+.attachment-chip {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-attach-btn {
+  padding: 6px;
+  min-width: auto;
+}
+.chat-input-wrap { position: relative; display: flex; align-items: center; }
