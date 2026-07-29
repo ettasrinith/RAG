@@ -71,12 +71,12 @@
 
 .nav-section-label {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
-  padding: 10px 10px 4px;
+  padding: 12px 10px 4px;
 }
 
 .nav-item {
@@ -210,6 +210,8 @@
   margin-left: var(--sidebar-w);
   min-height: 100vh;
   max-width: var(--content-maxw);
+  width: 100%;
+  margin-right: auto;
   transition: margin-left var(--t-med) var(--ease-out);
 }
 

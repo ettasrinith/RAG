@@ -186,94 +186,13 @@
 }
 .index-buttons { display: flex; gap: 8px; }
 
-/* Progress panel */
-.progress-panel {
-  padding: 20px 22px;
-  border-radius: var(--r-lg);
-  margin-top: 16px;
+/* Progress panel, spinner — defined in components.css */
+.progress-panel.glass {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--glass-border);
 }
-.progress-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.progress-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 14px;
-}
-.progress-pct {
-  font-family: var(--font-mono);
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--primary);
-}
-.progress-bar {
-  height: 8px;
-  background: var(--surface-2);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
-  transition: width 0.6s var(--ease-out);
-  position: relative;
-  overflow: hidden;
-}
-.progress-fill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
-  animation: shimmer-bar 1.4s var(--ease-in-out) infinite;
-}
-@keyframes shimmer-bar {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(100%); }
-}
-.progress-label {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  margin-top: 8px;
-  font-family: var(--font-mono);
-}
-.progress-log {
-  margin-top: 12px;
-  max-height: 140px;
-  overflow-y: auto;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 10px 12px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  line-height: 1.7;
-}
-.log-entry { color: var(--text-dim); animation: chip-in 0.15s var(--ease-out); }
-.log-entry.success { color: var(--success); }
-.log-entry.error { color: var(--danger); }
-.log-entry.info { color: var(--accent); }
-
-.spinner-sm {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--border-strong);
-  border-top-color: var(--primary);
-  animation: spin 0.6s linear infinite;
-  display: inline-block;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── 13. Research ────────────────────────────────────── */
 .research-tabs {

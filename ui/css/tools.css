@@ -30,11 +30,11 @@
   gap: 12px;
 }
 .tool-label {
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 .tool-input-row textarea,
 .tool-input-row input {
@@ -42,12 +42,12 @@
   padding: 12px 16px;
   border-radius: var(--r-md);
   border: 1.5px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--text);
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
-  transition: border-color var(--t-fast);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .tool-input-row textarea:focus,
 .tool-input-row input:focus {
@@ -70,8 +70,8 @@
   padding: 10px 14px;
   border-radius: var(--r-md);
   border: 1.5px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--text);
   font-size: 13px;
 }
 .tool-focus-row input:focus {
@@ -88,8 +88,8 @@
   padding: 10px 14px;
   border-radius: var(--r-md);
   border: 1.5px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--text);
   font-size: 13px;
   font-family: inherit;
   resize: vertical;
@@ -104,7 +104,7 @@
 .tool-progress {
   padding: 20px;
   border-radius: var(--r-lg);
-  background: var(--surface-1);
+  background: var(--surface);
   border: 1px solid var(--border);
   margin-bottom: 20px;
 }
@@ -114,7 +114,7 @@
   gap: 10px;
   margin-bottom: 12px;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--text-dim);
 }
 .dr-steps {
   margin-top: 12px;
@@ -127,7 +127,7 @@
   border-radius: var(--r-sm);
   background: var(--surface-2);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-dim);
 }
 .dr-step ul {
   margin: 6px 0 0 16px;
@@ -148,7 +148,7 @@
 .tool-results {
   border-radius: var(--r-lg);
   border: 1px solid var(--border);
-  background: var(--surface-1);
+  background: var(--surface);
   overflow: hidden;
 }
 .tool-results-header {
@@ -173,7 +173,7 @@
   padding: 24px;
   font-size: 14px;
   line-height: 1.7;
-  color: var(--text-primary);
+  color: var(--text);
   max-height: 600px;
   overflow-y: auto;
 }
@@ -183,7 +183,7 @@
 .tool-report p { margin: 8px 0; }
 .tool-report ul, .tool-report ol { margin: 8px 0; padding-left: 20px; }
 .tool-report li { margin: 4px 0; }
-.tool-report strong { color: var(--text-primary); }
+.tool-report strong { color: var(--text); }
 .tool-sources {
   padding: 16px 24px;
   border-top: 1px solid var(--border);
@@ -237,7 +237,7 @@
   font-weight: 600;
   margin-bottom: 4px;
 }
-.rec-title a { color: var(--text-primary); text-decoration: none; }
+.rec-title a { color: var(--text); text-decoration: none; }
 .rec-title a:hover { color: var(--primary); }
 .rec-authors {
   font-size: 12.5px;
@@ -258,7 +258,7 @@
 }
 .rec-reason {
   font-size: 12.5px;
-  color: var(--text-secondary);
+  color: var(--text-dim);
   margin-bottom: 4px;
 }
 .rec-abstract {
@@ -299,7 +299,7 @@
   font-size: 14px;
   font-weight: 600;
 }
-.path-title a { color: var(--text-primary); text-decoration: none; }
+.path-title a { color: var(--text); text-decoration: none; }
 .path-title a:hover { color: var(--primary); }
 .path-authors {
   font-size: 12px;
@@ -307,7 +307,7 @@
 }
 .path-reason {
   font-size: 12.5px;
-  color: var(--text-secondary);
+  color: var(--text-dim);
   margin-top: 2px;
 }
 .path-connector {
@@ -361,7 +361,7 @@
   font-size: 14px;
   font-weight: 700;
   margin-bottom: 10px;
-  color: var(--text-primary);
+  color: var(--text);
 }
 .parse-meta-grid {
   display: grid;
@@ -383,7 +383,7 @@
 }
 .parse-meta-item .val {
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--text);
 }
 .parse-table-wrap {
   margin-bottom: 16px;
@@ -391,7 +391,7 @@
 .parse-table-wrap h5 {
   font-size: 13px;
   margin-bottom: 6px;
-  color: var(--text-secondary);
+  color: var(--text-dim);
 }
 .parse-table-md {
   font-size: 12px;
@@ -415,7 +415,7 @@
 .parse-text-preview {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-secondary);
+  color: var(--text-dim);
   max-height: 200px;
   overflow-y: auto;
   padding: 12px;

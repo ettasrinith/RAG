@@ -172,15 +172,18 @@ $('theme-toggle').addEventListener('click', () => {
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
-    navigate('search');
-    $('search-input').focus();
+    if (paletteOpen) { closePalette(); } else { openPalette(); }
+    return;
   }
   if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
     e.preventDefault();
     navigate('search');
     $('search-input').focus();
   }
-  if (e.key === 'Escape' && document.activeElement) document.activeElement.blur();
+  if (e.key === 'Escape') {
+    if (paletteOpen) { closePalette(); return; }
+    if (document.activeElement) document.activeElement.blur();
+  }
 });
 
 /* ── Navigation ──────────────────────────────────────────── */
@@ -216,10 +219,7 @@ async function navigate(view) {
 function reattachViewListeners(view) {
   // Search view listeners
   if (view === 'search') {
-    $('search-form')?.addEventListener('submit', e => { e.preventDefault(); doSearch(); });
-    $('filter-source')?.addEventListener('change', doSearch);
-    $('filter-repo')?.addEventListener('change', doSearch);
-    $('filter-hybrid')?.addEventListener('change', doSearch);
+    bindSearchViewListeners();
   }
 
   // Chat view listeners

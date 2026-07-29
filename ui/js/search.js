@@ -30,16 +30,39 @@ async function refreshDashboard() {
       chartEl.innerHTML = '<div class="empty-sm">No repositories indexed yet</div>';
     }
 
-    // Activity
+    // Activity / system status
     const activityEl = $('dash-activity');
     if (activityEl) {
       activityEl.innerHTML = [
-        { type: 'index', text: 'Index has ' + (health.rows || 0) + ' documents' },
-        { type: 'search', text: 'Search across ' + ((repos.repos || []).length || 0) + ' repos' },
+        { type: 'index', text: (health.rows || 0).toLocaleString() + ' documents · ' + (health.research_rows || 0).toLocaleString() + ' papers indexed' },
+        { type: 'search', text: 'Embedding: ' + (health.embedding_model || 'N/A') },
         { type: 'chat', text: 'LLM: ' + (health.llm_model || 'N/A') },
+        { type: health.indexing ? 'research' : 'index', text: health.indexing ? 'Indexing in progress…' : 'System idle — ready' },
       ].map(a =>
         '<div class="activity-item"><span class="activity-dot ' + a.type + '"></span>' + esc(a.text) + '</div>'
       ).join('');
+    }
+
+    // Collections
+    const collEl = $('dash-collections');
+    if (collEl) {
+      try {
+        const coll = await api('/v1/collections');
+        const items = coll.data || [];
+        if (items.length) {
+          collEl.innerHTML = items.slice(0, 6).map(c =>
+            '<div class="collection-row">' +
+            '<span class="collection-dot"></span>' +
+            '<span class="collection-name">' + esc(c.name || c.id) + '</span>' +
+            '<span class="collection-meta">' + esc(c.description || '') + '</span>' +
+            '</div>'
+          ).join('');
+        } else {
+          collEl.innerHTML = '<div class="state-sm">No collections yet — create one in Admin.</div>';
+        }
+      } catch (_) {
+        collEl.innerHTML = '<div class="state-sm">Could not load collections</div>';
+      }
     }
 
   } catch (e) {
@@ -95,14 +118,6 @@ function updateFilterChips() {
   if (repo) html += '<span class="chip">Repo: ' + esc(repo) + '<span class="chip-rm" data-clear="repo">×</span></span>';
   chips.innerHTML = html;
 }
-
-$('filter-chips').addEventListener('click', e => {
-  const rm = e.target.closest('.chip-rm');
-  if (!rm) return;
-  if (rm.dataset.clear === 'source') $('filter-source').value = '';
-  if (rm.dataset.clear === 'repo') $('filter-repo').value = '';
-  doSearch();
-});
 
 async function doSearch() {
   const q = $('search-input').value.trim();
@@ -185,20 +200,47 @@ function renderSearchResults(q, hits) {
   }).join('');
 }
 
-// Click card to open URL
-$('results-list').addEventListener('click', e => {
-  if (e.target.closest('a')) return;
-  const card = e.target.closest('.result-card');
-  if (card && card.dataset.url) window.open(card.dataset.url, '_blank');
-});
-
 let searchTimer;
-$('search-input').addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(doSearch, 280);
-});
-$('search-form').addEventListener('submit', e => { e.preventDefault(); doSearch(); });
-$('filter-source').addEventListener('change', doSearch);
-$('filter-repo').addEventListener('change', doSearch);
-$('filter-hybrid').addEventListener('change', doSearch);
+
+/* Bind search-view listeners once the view exists in the DOM.
+   The search view is loaded dynamically, so these elements are not
+   present at script-load time. Called from reattachViewListeners('search'),
+   guarded so each listener is attached exactly once. */
+let searchViewBound = false;
+function bindSearchViewListeners() {
+  if (searchViewBound) return;
+  const chips = $('filter-chips');
+  const results = $('results-list');
+  const input = $('search-input');
+  const form = $('search-form');
+  if (!chips || !results || !input || !form) return;
+  searchViewBound = true;
+
+  // Remove active filter chips
+  chips.addEventListener('click', e => {
+    const rm = e.target.closest('.chip-rm');
+    if (!rm) return;
+    if (rm.dataset.clear === 'source') $('filter-source').value = '';
+    if (rm.dataset.clear === 'repo') $('filter-repo').value = '';
+    doSearch();
+  });
+
+  // Click card to open URL
+  results.addEventListener('click', e => {
+    if (e.target.closest('a')) return;
+    const card = e.target.closest('.result-card');
+    if (card && card.dataset.url) window.open(card.dataset.url, '_blank');
+  });
+
+  // Instant (debounced) search as you type
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(doSearch, 280);
+  });
+
+  form.addEventListener('submit', e => { e.preventDefault(); doSearch(); });
+  $('filter-source').addEventListener('change', doSearch);
+  $('filter-repo').addEventListener('change', doSearch);
+  $('filter-hybrid').addEventListener('change', doSearch);
+}
 
